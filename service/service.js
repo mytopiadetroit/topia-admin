@@ -45,6 +45,49 @@ function Api(method, url, data, router, params) {
   });
 }
 
+// ApiFormData function for making API calls with FormData
+function ApiFormData(method, url, data, router, params) {
+  return new Promise(function (resolve, reject) {
+    if (isRedirecting) {
+      resolve({ success: false, redirect: true });
+      return;
+    }
+    
+    let token = "";
+    if (typeof window !== "undefined") {
+      token = localStorage?.getItem("token") || "";
+    }
+    
+    axios({
+      method,
+      url: ConstantsUrl + url,
+      data,
+      headers: { 
+        Authorization: `jwt ${token}`,
+        'Content-Type': 'multipart/form-data'
+      },
+      params
+    }).then(
+      (res) => {
+        resolve(res.data);
+      },
+      (err) => {
+        if (err.response) {
+          if (err?.response?.status === 401) {
+            if (typeof window !== "undefined") {
+              handleTokenExpiration(router);
+              return resolve({ success: false, redirect: true });
+            }
+          }
+          reject(err.response.data);
+        } else {
+          reject(err);
+        }
+      }
+    );
+  });
+}
+
 // Axios interceptor for global error handling
 axios.interceptors.response.use(
   (response) => response,
@@ -117,55 +160,6 @@ const handleTokenExpiration = (router) => {
   }
 };
 
-const setGlobalRouter = (router) => {
-  if (typeof window !== "undefined") {
-    window.router = router;
-  }
-};
-
-function ApiFormData(method, url, data, router) {
-  return new Promise(function (resolve, reject) {
-    if (isRedirecting) {
-      resolve({ redirect: true, message: "Logging you out. Please wait..." });
-      return;
-    }
-    
-    let token = "";
-    if (typeof window !== "undefined") {
-      token = localStorage?.getItem("token") || "";
-    }
-    
-    axios({
-      method,
-      url: ConstantsUrl + url,
-      data,
-      headers: {
-        Authorization: `jwt ${token}`,
-        "Content-Type": "multipart/form-data",
-      },
-    }).then(
-      (res) => {
-        resolve(res.data);
-      },
-      (err) => {
-        console.log(err);
-        if (err.response) {
-          if (err?.response?.status === 401) {
-            if (typeof window !== "undefined") {
-              if (handleTokenExpiration(router)) {
-                return resolve({ redirect: true, message: "Session expired. Please login again." });
-              }
-            }
-          }
-          reject(err.response.data);
-        } else {
-          reject(err);
-        }
-      }
-    );
-  });
-}
-
 const timeSince = (date) => {
   date = new Date(date);
   const diff = new Date().valueOf() - date.valueOf();
@@ -219,6 +213,125 @@ const timeSince = (date) => {
   return "Just now";
 };
 
+// Helper function to fetch all categories
+const fetchAllCategories = async (router) => {
+  try {
+    return await Api('get', 'categories/categories', null, router);
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    throw error;
+  }
+};
+
+// Helper function to fetch products by category
+const fetchProductsByCategory = async (categoryId, router) => {
+  try {
+    return await Api('get', `products/category/${categoryId}`, null, router);
+  } catch (error) {
+    console.error('Error fetching products by category:', error);
+    throw error;
+  }
+};
+
+// Helper function to create product (multipart/form-data)
+const createProduct = async (formData, router) => {
+  try {
+    return await ApiFormData('post', 'products', formData, router);
+  } catch (error) {
+    console.error('Error creating product:', error);
+    throw error;
+  }
+};
+
+// Helper function to update product (multipart/form-data)
+const updateProductApi = async (id, formData, router) => {
+  try {
+    return await ApiFormData('put', `products/${id}`, formData, router);
+  } catch (error) {
+    console.error('Error updating product:', error);
+    throw error;
+  }
+};
+
+// Helper function to delete product
+const deleteProduct = async (id, router) => {
+  try {
+    return await Api('delete', `products/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    throw error;
+  }
+};
+
+// Helper function to fetch all users (supports pagination params)
+const fetchAllUsers = async (router, params = {}) => {
+  try {
+    // params: { page, limit, search, role }
+    return await Api('get', 'users', null, router, params);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    throw error;
+  }
+};
+
+// Helper function to fetch user by ID
+const fetchUserById = async (id, router) => {
+  try {
+    return await Api('get', `users/${id}`, null, router);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    throw error;
+  }
+};
+
+// Helper function to update user
+const updateUser = async (id, userData, router) => {
+  try {
+    return await Api('put', `users/${id}`, userData, router);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+};
+
+// Helper function to delete user
+const deleteUser = async (id, router) => {
+  try {
+    return await Api('delete', `users/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+};
+
+// Orders helpers (admin)
+const fetchAllOrders = async (router, params = {}) => {
+  try {
+    return await Api('get', 'admin/orders', null, router, params);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    throw error;
+  }
+};
+
+const updateOrderStatusApi = async (orderId, status, router) => {
+  try {
+    return await Api('put', `admin/orders/${orderId}/status`, { status }, router);
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    throw error;
+  }
+};
+
+const deleteOrderApi = async (orderId, router) => {
+  try {
+    return await Api('delete', `admin/orders/${orderId}`, null, router);
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    throw error;
+  }
+};
+
 // Toast notification function
 const toast = {
   success: (message) => {
@@ -245,4 +358,41 @@ const setGlobalToast = (toastFunction) => {
   }
 };
 
-export { Api, timeSince, ApiFormData, setGlobalRouter, toast, setGlobalToast };
+// Set global router function
+const setGlobalRouter = (routerInstance) => {
+  if (typeof window !== "undefined") {
+    window.router = routerInstance;
+  }
+};
+
+export { 
+  Api, 
+  timeSince, 
+  ApiFormData, 
+  setGlobalRouter, 
+  toast, 
+  setGlobalToast, 
+  fetchAllCategories, 
+  fetchProductsByCategory, 
+  createProduct, 
+  updateProductApi,
+  deleteProduct,
+  fetchAllUsers, 
+  fetchUserById, 
+  updateUser, 
+  deleteUser,
+  fetchAllOrders,
+  updateOrderStatusApi,
+  deleteOrderApi,
+  fetchLoginStatsLast7
+};
+
+// Admin stats helpers
+const fetchLoginStatsLast7 = async (router) => {
+  try {
+    return await Api('get', 'users/admin/login-stats/last7', null, router);
+  } catch (error) {
+    console.error('Error fetching login stats:', error);
+    throw error;
+  }
+};

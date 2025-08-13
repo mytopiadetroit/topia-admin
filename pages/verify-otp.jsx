@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, User } from 'lucide-react';
 import { useRouter } from 'next/router';
-import { Api } from '../service/service.js';
-import { toast } from 'react-toastify';
+import { Api, toast } from '../service/service.js';
+// import { toast } from 'react-toastify';
 
-export default function OtpVerificationPage() {
+export default function OtpVerificationPage({ user, loader }) {
   const router = useRouter();
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +52,9 @@ export default function OtpVerificationPage() {
         // Store updated token if provided
         if (response.token) {
           localStorage.setItem('token', response.token);
+        }
+        if (response.user) {
+          localStorage.setItem('userDetail', JSON.stringify(response.user));
         }
         
         // Show success toast message

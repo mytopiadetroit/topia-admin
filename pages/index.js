@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { User, ArrowRight, Phone } from 'lucide-react';
 import { useRouter } from 'next/router';
+// import { toast } from 'react-toastify';
+import { Api, toast } from '@/service/service';
 
-import { toast } from 'react-toastify';
-import { UserProvider, useUser } from '@/context/UserContext';
-import { Api } from '@/service/service';
-
-export default function LoginPage() {
+export default function LoginPage({ user, loader }) {
   const router = useRouter();
   const [formData, setFormData] = useState({
     phone: ''
@@ -14,14 +12,12 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-
-  const {login, isLoggedIn } = useUser()
- 
   useEffect(() => {
-    if (isLoggedIn) {
+    // Check if user is already logged in
+    if (user && Object.keys(user).length > 0) {
       router.push('/dashboard');
     }
-  }, [isLoggedIn, router]);
+  }, [user, router]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -48,7 +44,6 @@ export default function LoginPage() {
       setIsLoading(true);
       setError('');
       
- 
       const response = await Api('post', 'auth/login', {
         phone: formData.phone,
         isAdmin: true 
@@ -57,35 +52,23 @@ export default function LoginPage() {
       if (response.success) {
         // Check if user has admin role
         if (response.user && response.user.role === 'admin') {
-          // Use the login function from UserContext
-          const loginSuccess = login(response.user, response.token);
+          // Store user data and token (token here represents pre-OTP session)
+          localStorage.setItem('userDetail', JSON.stringify(response.user));
+          if (response.token) localStorage.setItem('token', response.token);
           
-          if (loginSuccess) {
-            // Show success toast message
-            toast.success('OTP has been sent! Please verify to continue.', {
-              position: "top-center",
-              autoClose: 3000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              progress: undefined,
-            });
-            
-            // Redirect to OTP verification page
-            router.push('/verify-otp');
-          } else {
-            setError('You do not have admin privileges');
-            toast.error('You do not have admin privileges', {
-              position: "top-center",
-              autoClose: 5000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              progress: undefined,
-            });
-          }
+          // Show success toast message
+          toast.success('OTP has been sent! Please verify to continue.', {
+            position: "top-center",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+          });
+          
+          // Redirect to OTP verification page
+          router.push('/verify-otp');
         } else {
           setError('You do not have admin privileges');
           toast.error('You do not have admin privileges', {
@@ -227,13 +210,7 @@ export default function LoginPage() {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
             </div>
-           
           </div>
-
-        
-
-          {/* Sign up link */}
-      
         </div>
       </div>
     </div>

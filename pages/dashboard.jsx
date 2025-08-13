@@ -7,16 +7,19 @@ import {
   Grid3X3, 
   TrendingUp, 
   TrendingDown,
-  Menu,
-  X
+  LogOut
 } from 'lucide-react';
-import Sidebar from '@/components/sidebar';
+import { useRouter } from 'next/router';
+import Layout from '@/components/Layout';
 
-export default function Dashboard() {
+export default function Dashboard({ user, loader }) {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+  const handleLogout = () => {
+    localStorage.removeItem('userDetail');
+    localStorage.removeItem('token');
+    router.push('/');
   };
 
   // Stats Data
@@ -42,7 +45,8 @@ export default function Dashboard() {
       icon: '📊',
       trend: { value: '4.3%', isUp: false, text: 'Down from yesterday' },
       bgColor: 'bg-green-50',
-      iconBg: 'bg-green-100'
+      iconBg: 'bg-green-100',
+      link: '/admin/orders'
     },
     {
       title: 'Categories',
@@ -89,42 +93,38 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+    <Layout title="Dashboard">
+      <div className="p-6">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b px-4 lg:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={toggleSidebar}
-                className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
+          <h1 className="text-2xl text-gray-700 font-bold">Dashboard</h1>
+          <div className="flex items-center gap-2">
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-700">
+                {user?.name || user?.phone || 'Admin'}
+              </p>
+              <p className="text-xs text-gray-500">Admin</p>
             </div>
-            
-            {/* User Profile */}
-            <div className="flex items-center space-x-3">
-              <div className="text-right hidden sm:block">
-                <div className="text-sm font-medium text-gray-900">Karen</div>
-                <div className="text-xs text-gray-500">Admin</div>
-              </div>
-              <div className="w-10 h-10 bg-gradient-to-r from-pink-400 to-red-400 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">K</span>
+            <div className="h-10 w-10 rounded-full overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-r from-pink-400 to-red-400 flex items-center justify-center">
+                <span className="text-white font-medium text-sm">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+                </span>
               </div>
             </div>
           </div>
-        </header>
+        </div>
 
         {/* Dashboard Content */}
-        <main className="p-4 lg:p-6">
+        <div className="space-y-6">
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {stats.map((stat, index) => (
-              <div key={index} className={`${stat.bgColor} rounded-2xl p-6 border border-gray-100`}>
+              <div 
+                key={index} 
+                className={`${stat.bgColor} rounded-2xl p-6 border border-gray-100 ${stat.link ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+                onClick={() => stat.link && router.push(stat.link)}
+              >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="text-gray-600 text-sm font-medium mb-2">{stat.title}</p>
@@ -212,8 +212,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </main>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 }
