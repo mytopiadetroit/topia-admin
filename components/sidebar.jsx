@@ -11,7 +11,8 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
-  FileText
+  FileText,
+  Star
 } from "lucide-react";
 import { fetchAllCategories } from "../service/service";
 
@@ -55,6 +56,8 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       setActiveModule("users");
     } else if (router.pathname.includes("/admin/orders")) {
       setActiveModule("orders");
+    } else if (router.pathname.includes("/reviews")) {
+      setActiveModule("reviews");
     }
   }, [router.pathname]);
 
@@ -106,6 +109,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
               {!collapsed && (
                 <div className="flex flex-col items-center">
                   <div className="w-32 h-32 rounded-full ml-6 flex items-center justify-center mb-2">
+                    {/* <span className="text-blue-600 text-lg font-bold">🍄</span> */}
                     <img src="/logo.png" alt="" />
                   </div>
                   {/* <span className="text-white font-bold text-lg">ShroomTopia</span> */}
@@ -174,14 +178,14 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 </button>
               </Link>
 
-              {/* <Link href="/stats">
+              <Link href="/stats">
                 <button
                   className={getModuleClasses("stats")}
                 >
                   <BarChart3 className={`h-5 w-5 ${activeModule === "stats" ? "text-[#80A6F7]" : ""}`} />
                   {!collapsed && <span className="ml-2">Stats</span>}
                 </button>
-              </Link> */}
+              </Link>
               
               <Link href="/users">
                 <button
@@ -191,6 +195,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                   {!collapsed && <span className="ml-2">Users</span>}
                 </button>
               </Link>
+
+            <Link href="/reviews">
+  <button
+    className={getModuleClasses("reviews")}
+  >
+    <Star className={`h-5 w-5 ${activeModule === "reviews" ? "text-[#80A6F7]" : ""}`} />
+    {!collapsed && <span className="ml-2">Reviews</span>}
+  </button>
+</Link>
 
               <Link href="/admin/orders">
                 <button

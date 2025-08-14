@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, User } from 'lucide-react';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/router.js';
 import { Api, toast } from '../service/service.js';
 // import { toast } from 'react-toastify';
 

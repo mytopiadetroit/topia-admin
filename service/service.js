@@ -1,7 +1,7 @@
 import axios from "axios";
 
-const ConstantsUrl = "http://localhost:5000/api/";
-//  const ConstantsUrl = "https://api.mypsyguide.io/api/";
+// const ConstantsUrl = "http://localhost:5000/api/";
+  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -384,7 +384,11 @@ export {
   fetchAllOrders,
   updateOrderStatusApi,
   deleteOrderApi,
-  fetchLoginStatsLast7
+  fetchLoginStatsLast7,
+  fetchAllReviews,
+  createReviewApi,
+  updateReviewApi,
+  deleteReviewApi
 };
 
 // Admin stats helpers
@@ -393,6 +397,43 @@ const fetchLoginStatsLast7 = async (router) => {
     return await Api('get', 'users/admin/login-stats/last7', null, router);
   } catch (error) {
     console.error('Error fetching login stats:', error);
+    throw error;
+  }
+};
+
+// Reviews helpers (admin) — manage simple options (label + emoji)
+const fetchAllReviews = async (router, params = {}) => {
+  try {
+    return await Api('get', 'reviews', null, router, params);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    throw error;
+  }
+};
+
+const createReviewApi = async (data, router) => {
+  try {
+    return await Api('post', 'reviews', data, router);
+  } catch (error) {
+    console.error('Error creating review:', error);
+    throw error;
+  }
+};
+
+const updateReviewApi = async (id, data, router) => {
+  try {
+    return await Api('put', `reviews/${id}`, data, router);
+  } catch (error) {
+    console.error('Error updating review:', error);
+    throw error;
+  }
+};
+
+const deleteReviewApi = async (id, router) => {
+  try {
+    return await Api('delete', `reviews/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting review:', error);
     throw error;
   }
 };

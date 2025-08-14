@@ -7,6 +7,7 @@ const resolveTitleFromPath = (pathname) => {
   if (pathname.includes('/dashboard')) return 'Dashboard';
   if (pathname.includes('/categories')) return 'Categories';
   if (pathname.includes('/users')) return 'Users';
+  if (pathname.includes('/reviews')) return 'Reviews';
   if (pathname.includes('/admin/orders')) return 'Orders';
   if (pathname.includes('/product')) return 'Products';
   if (pathname.includes('/products/')) return 'Products';
