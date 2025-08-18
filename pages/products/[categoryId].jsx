@@ -34,6 +34,7 @@ export default function ProductsByCategory() {
   const [form, setForm] = useState({
     name: '',
     price: '',
+    stock: '',
     descriptionMain: '',
     descriptionDetails: '',
     primaryUse: 'therapeutic',
@@ -46,6 +47,7 @@ export default function ProductsByCategory() {
     id: '',
     name: '',
     price: '',
+    stock: '',
     descriptionMain: '',
     descriptionDetails: '',
     primaryUse: 'therapeutic',
@@ -98,8 +100,6 @@ export default function ProductsByCategory() {
     try {
       setProductModalLoading(true);
       setShowProductModal(true);
-      
-      // For now, we'll use the product data from the list
       const product = products.find(p => p._id === productId);
       if (product) {
         setSelectedProduct(product);
@@ -129,6 +129,7 @@ export default function ProductsByCategory() {
       id: product._id,
       name: product.name || '',
       price: product.price || '',
+      stock: product.stock ?? '',
       descriptionMain: product.description?.main || '',
       descriptionDetails: product.description?.details || '',
       primaryUse: product.primaryUse || 'therapeutic',
@@ -159,6 +160,7 @@ export default function ProductsByCategory() {
       const fd = new FormData();
       fd.append('name', editForm.name);
       fd.append('price', String(editForm.price));
+      fd.append('stock', String(editForm.stock || 0));
       fd.append('primaryUse', editForm.primaryUse);
       fd.append('hasStock', String(editForm.hasStock));
       fd.append('category', categoryId);
@@ -204,11 +206,7 @@ export default function ProductsByCategory() {
         }
       } catch (error) {
         console.error('Error deleting product:', error);
-        Swal.fire(
-          'Error!',
-          'Failed to delete product.',
-          'error'
-        );
+        Swal.fire('Error!', 'Failed to delete product.', 'error');
       }
     }
   };
@@ -217,6 +215,7 @@ export default function ProductsByCategory() {
     setForm({
       name: '',
       price: '',
+      stock: '',
       descriptionMain: '',
       descriptionDetails: '',
       primaryUse: 'therapeutic',
@@ -243,6 +242,7 @@ export default function ProductsByCategory() {
       const fd = new FormData();
       fd.append('name', form.name);
       fd.append('price', String(form.price));
+      fd.append('stock', String(form.stock || 0));
       fd.append('primaryUse', form.primaryUse);
       fd.append('hasStock', String(form.hasStock));
       fd.append('category', categoryId);
@@ -269,12 +269,7 @@ export default function ProductsByCategory() {
       }
     } catch (err) {
       console.error(err);
-      Swal.fire({
-        title: 'Error!',
-        text: 'Error creating product',
-        icon: 'error',
-        confirmButtonText: 'OK'
-      });
+      Swal.fire({ title: 'Error!', text: 'Error creating product', icon: 'error', confirmButtonText: 'OK' });
     } finally {
       setSaving(false);
     }
@@ -285,21 +280,8 @@ export default function ProductsByCategory() {
            product.description?.main?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(price);
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
+  const formatPrice = (price) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+  const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   const truncateWords = (text, limit = 3) => {
     if (!text || typeof text !== 'string') return '';
     const words = text.trim().split(/\s+/);
@@ -326,20 +308,13 @@ export default function ProductsByCategory() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center space-x-3 mb-2">
-                <button
-                  onClick={() => router.back()}
-                  className="flex items-center text-gray-600 hover:text-gray-900"
-                >
+                <button onClick={() => router.back()} className="flex items-center text-gray-600 hover:text-gray-900">
                   <ArrowLeft className="h-4 w-4 mr-1" />
                   Back
                 </button>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {category ? category.category : 'Products'}
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Manage products in {category ? category.category : 'this category'}
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900">{category ? category.category : 'Products'}</h1>
+              <p className="text-gray-600 mt-2">Manage products in {category ? category.category : 'this category'}</p>
             </div>
             <div className="flex items-center space-x-3">
               <button onClick={openAddModal} className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
@@ -357,19 +332,10 @@ export default function ProductsByCategory() {
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <input type="text" placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
             </div>
-            
-            <div className="text-sm text-gray-500">
-              {filteredProducts.length} of {products.length} products
-            </div>
+            <div className="text-sm text-gray-500">{filteredProducts.length} of {products.length} products</div>
           </div>
         </div>
 
@@ -409,31 +375,19 @@ export default function ProductsByCategory() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.hasStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {product.hasStock ? 'In Stock' : 'Out of Stock'}
+                        {product.hasStock ? `In Stock (${product.stock ?? 0})` : 'Out of Stock'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(product.createdAt)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleViewProduct(product._id)}
-                          className="text-blue-600 hover:text-blue-900 p-1"
-                          title="View Product"
-                        >
+                        <button onClick={() => handleViewProduct(product._id)} className="text-blue-600 hover:text-blue-900 p-1" title="View Product">
                           <Eye className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleEditProduct(product._id)}
-                          className="text-green-600 hover:text-green-900 p-1"
-                          title="Edit Product"
-                        >
+                        <button onClick={() => handleEditProduct(product._id)} className="text-green-600 hover:text-green-900 p-1" title="Edit Product">
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleDeleteProduct(product._id)}
-                          className="text-red-600 hover:text-red-900 p-1"
-                          title="Delete Product"
-                        >
+                        <button onClick={() => handleDeleteProduct(product._id)} className="text-red-600 hover:text-red-900 p-1" title="Delete Product">
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -450,12 +404,7 @@ export default function ProductsByCategory() {
           <div className="text-center py-12">
             <Package className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No products found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm 
-                ? 'Try adjusting your search criteria.'
-                : 'Get started by adding a new product.'
-              }
-            </p>
+            <p className="mt-1 text-sm text-gray-500">{searchTerm ? 'Try adjusting your search criteria.' : 'Get started by adding a new product.'}</p>
           </div>
         )}
 
@@ -463,18 +412,12 @@ export default function ProductsByCategory() {
         {showProductModal && selectedProduct && (
           <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-y-auto">
-              {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-900">Product Details</h2>
-                <button
-                  onClick={closeProductModal}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                >
+                <button onClick={closeProductModal} className="text-gray-400 hover:text-gray-600 p-1">
                   <X className="h-6 w-6" />
                 </button>
               </div>
-
-              {/* Modal Content */}
               <div className="p-6">
                 {productModalLoading ? (
                   <div className="flex items-center justify-center py-12">
@@ -482,18 +425,12 @@ export default function ProductsByCategory() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Product Images */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-3">Product Images</h4>
                       <div className="grid grid-cols-2 gap-4">
                         {selectedProduct.images && selectedProduct.images.length > 0 ? (
                           selectedProduct.images.map((image, index) => (
-                            <img
-                              key={index}
-                              src={image}
-                              alt={`${selectedProduct.name} - Image ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg"
-                            />
+                            <img key={index} src={image} alt={`${selectedProduct.name} - Image ${index + 1}`} className="w-full h-32 object-cover rounded-lg" />
                           ))
                         ) : (
                           <div className="col-span-2 h-32 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -502,94 +439,52 @@ export default function ProductsByCategory() {
                         )}
                       </div>
                     </div>
-
-                    {/* Product Information */}
                     <div className="space-y-4">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          {selectedProduct.name}
-                        </h3>
-                        <p className="text-2xl font-bold text-blue-600">
-                          {formatPrice(selectedProduct.price)}
-                        </p>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{selectedProduct.name}</h3>
+                        <p className="text-2xl font-bold text-blue-600">{formatPrice(selectedProduct.price)}</p>
                       </div>
-
                       <div className="space-y-3">
                         <div>
                           <h4 className="text-sm font-medium text-gray-700">Description</h4>
-                          <p className="text-sm text-gray-900 mt-1">
-                            {selectedProduct.description?.main}
-                          </p>
+                          <p className="text-sm text-gray-900 mt-1">{selectedProduct.description?.main}</p>
                         </div>
-
                         <div>
                           <h4 className="text-sm font-medium text-gray-700">Category</h4>
-                          <p className="text-sm text-gray-900 mt-1">
-                            {selectedProduct.category?.category || 'N/A'}
-                          </p>
+                          <p className="text-sm text-gray-900 mt-1">{selectedProduct.category?.category || 'N/A'}</p>
                         </div>
-
                         <div>
                           <h4 className="text-sm font-medium text-gray-700">Primary Use</h4>
-                          <p className="text-sm text-gray-900 mt-1 capitalize">
-                            {selectedProduct.primaryUse}
-                          </p>
+                          <p className="text-sm text-gray-900 mt-1 capitalize">{selectedProduct.primaryUse}</p>
                         </div>
-
                         <div>
                           <h4 className="text-sm font-medium text-gray-700">Stock Status</h4>
-                          <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${
-                            selectedProduct.hasStock 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {selectedProduct.hasStock ? 'In Stock' : 'Out of Stock'}
+                          <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${selectedProduct.hasStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {selectedProduct.hasStock ? `In Stock (${selectedProduct.stock ?? 0})` : 'Out of Stock'}
                           </span>
                         </div>
-
                         {selectedProduct.tags && selectedProduct.tags.length > 0 && (
                           <div>
                             <h4 className="text-sm font-medium text-gray-700">Tags</h4>
                             <div className="flex flex-wrap gap-2 mt-1">
                               {selectedProduct.tags.map((tag, index) => (
-                                <span
-                                  key={index}
-                                  className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                                >
-                                  {tag}
-                                </span>
+                                <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">{tag}</span>
                               ))}
                             </div>
                           </div>
                         )}
-
                         <div>
                           <h4 className="text-sm font-medium text-gray-700">Created</h4>
-                          <p className="text-sm text-gray-900 mt-1">
-                            {formatDate(selectedProduct.createdAt)}
-                          </p>
+                          <p className="text-sm text-gray-900 mt-1">{formatDate(selectedProduct.createdAt)}</p>
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Modal Footer */}
               <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
-                <button
-                  onClick={closeProductModal}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    closeProductModal();
-                    handleEditProduct(selectedProduct._id);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
-                >
+                <button onClick={closeProductModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Close</button>
+                <button onClick={() => { closeProductModal(); handleEditProduct(selectedProduct._id); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Product
                 </button>
@@ -627,13 +522,17 @@ export default function ProductsByCategory() {
                   <label className="block text-sm text-gray-700 mb-1">Detailed Description</label>
                   <textarea name="descriptionDetails" value={form.descriptionDetails} onChange={handleChange} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
                     <select name="primaryUse" value={form.primaryUse} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700">
                       <option value="therapeutic">Therapeutic</option>
                       <option value="functional">Functional</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
+                    <input type="number" min="0" name="stock" value={form.stock} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
                   </div>
                   <div className="flex items-center space-x-2 mt-6">
                     <input id="hasStock" type="checkbox" name="hasStock" checked={form.hasStock} onChange={handleChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
@@ -649,9 +548,7 @@ export default function ProductsByCategory() {
                     {form.images && form.images.length > 0 && (
                       <div className="mt-3 grid grid-cols-3 gap-2">
                         {form.images.map((file, idx) => (
-                          <div key={idx} className="h-20 w-full bg-gray-100 rounded overflow-hidden flex items-center justify-center text-xs text-gray-500">
-                            {file.name}
-                          </div>
+                          <div key={idx} className="h-20 w-full bg-gray-100 rounded overflow-hidden flex items-center justify-center text-xs text-gray-500">{file.name}</div>
                         ))}
                       </div>
                     )}
@@ -659,9 +556,7 @@ export default function ProductsByCategory() {
                 </div>
                 <div className="flex justify-end space-x-3 pt-2">
                   <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
-                  <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">
-                    {saving ? 'Saving...' : 'Create Product'}
-                  </button>
+                  <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{saving ? 'Saving...' : 'Create Product'}</button>
                 </div>
               </form>
             </div>
@@ -697,13 +592,17 @@ export default function ProductsByCategory() {
                   <label className="block text-sm text-gray-700 mb-1">Detailed Description</label>
                   <textarea name="descriptionDetails" value={editForm.descriptionDetails} onChange={handleEditChange} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
                     <select name="primaryUse" value={editForm.primaryUse} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700">
                       <option value="therapeutic">Therapeutic</option>
                       <option value="functional">Functional</option>
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
+                    <input type="number" min="0" name="stock" value={editForm.stock} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
                   </div>
                   <div className="flex items-center space-x-2 mt-6">
                     <input id="editHasStock" type="checkbox" name="hasStock" checked={editForm.hasStock} onChange={handleEditChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
@@ -732,9 +631,7 @@ export default function ProductsByCategory() {
                 </div>
                 <div className="flex justify-end space-x-3 pt-2">
                   <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
-                  <button type="submit" disabled={editSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">
-                    {editSaving ? 'Saving...' : 'Update Product'}
-                  </button>
+                  <button type="submit" disabled={editSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{editSaving ? 'Saving...' : 'Update Product'}</button>
                 </div>
               </form>
             </div>

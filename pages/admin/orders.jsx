@@ -38,6 +38,21 @@ export default function AdminOrders() {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    const textMap = {
+      pending: 'Set order to Pending?',
+      unfulfilled: 'Mark order as Unfulfilled? Reserved stock will be returned.',
+      incomplete: 'Mark order as Incomplete? Reserved stock will be returned.',
+      fulfilled: 'Mark order as Fulfilled? Stock will remain deducted.'
+    };
+    const confirm = await Swal.fire({
+      title: 'Confirm Status Change',
+      text: textMap[newStatus] || 'Are you sure?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, update',
+      cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
     try {
       const response = await updateOrderStatusApi(orderId, newStatus, router);
       if (response.success) {
