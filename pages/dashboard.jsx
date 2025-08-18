@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   BarChart3, 
   Package, 
@@ -11,10 +11,40 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
+// import { useRouter } from 'next/router';
+import { fetchAllUsers, fetchAllOrders } from '@/service/service';
+import { fetchAllCategories } from '@/service/service';
+import { fetchAllProducts } from '@/service/service';
 
 export default function Dashboard({ user, loader }) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const [uRes, oRes, cRes, pRes] = await Promise.all([
+          fetchAllUsers(router, { page: 1, limit: 100 }),
+          fetchAllOrders(router, { page: 1, limit: 100 }),
+          fetchAllCategories(router),
+          fetchAllProducts(router, { page: 1, limit: 100 })
+        ]);
+        if (uRes?.success) setUsers(uRes.data || []);
+        if (oRes?.success) setOrders(oRes.data || []);
+        if (cRes?.success) setCategories(cRes.data || []);
+        if (pRes?.success) setProducts(pRes.data || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem('userDetail');
@@ -22,79 +52,92 @@ export default function Dashboard({ user, loader }) {
     router.push('/');
   };
 
-  // Stats Data
+  const todayRegistrations = useMemo(() => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    return users.filter(u => {
+      const created = new Date(u.createdAt);
+      return created >= start && created < end;
+    }).length;
+  }, [users]);
+
+  const pendingVerifications = useMemo(() => users.filter(u => (u.status || 'pending') === 'pending').length, [users]);
+
   const stats = [
     {
       title: 'Total Registrations Today',
-      value: '52',
+      value: String(todayRegistrations),
       icon: '👥',
-      trend: { value: '8.2%', isUp: true, text: 'Up from yesterday' },
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100'
     },
     {
       title: 'Pending ID Verifications',
-      value: '65',
+      value: String(pendingVerifications),
       icon: '🏷️',
       bgColor: 'bg-yellow-50',
       iconBg: 'bg-yellow-100'
     },
     {
       title: 'Total Submitted Orders',
-      value: '250',
+      value: String(orders.length),
       icon: '📊',
-      trend: { value: '4.3%', isUp: false, text: 'Down from yesterday' },
       bgColor: 'bg-green-50',
       iconBg: 'bg-green-100',
       link: '/admin/orders'
     },
     {
       title: 'Categories',
-      value: '8',
+      value: String(categories.length),
       icon: '🏷️',
       bgColor: 'bg-orange-50',
       iconBg: 'bg-orange-100'
     }
   ];
 
-  // Low Stock Data
-  const lowStockItems = [
-    {
-      name: 'Shroom Chocolate',
-      image: '/api/placeholder/40/40',
-      remaining: 6,
-      status: 'Low',
-      bgColor: 'bg-yellow-100',
-      textColor: 'text-yellow-800'
-    },
-    {
-      name: "Lion's Mane Capsule",
-      image: '/api/placeholder/40/40',
-      remaining: 10,
-      status: 'Low',
-      bgColor: 'bg-yellow-100',
-      textColor: 'text-yellow-800'
-    },
-    {
-      name: 'Mush Gummies',
-      image: '/api/placeholder/40/40',
-      remaining: 15,
-      status: 'Low',
-      bgColor: 'bg-yellow-100',
-      textColor: 'text-yellow-800'
-    }
-  ];
+  const lowStockItems = useMemo(() => {
+    // Assuming hasStock=false or tags include 'low' to denote low stock since there is no quantity field
+    const lows = (products || [])
+      .filter(p => p.hasStock === false || (Array.isArray(p.tags) && p.tags.some(t => /low/i.test(t))))
+      .slice(0, 5)
+      .map(p => ({
+        name: p.name,
+        remaining: p.hasStock === false ? 0 : 5,
+        status: p.hasStock === false ? 'Out' : 'Low',
+        bgColor: 'bg-yellow-100',
+        textColor: 'text-yellow-800'
+      }));
+    return lows;
+  }, [products]);
 
-  // Top Selling Data
-  const topSellingItems = [
-    { name: 'Mush Gummies', sold: 30, remaining: 12, price: '₹ 100' },
-    { name: "Lion's Mane Capsule", sold: 21, remaining: 15, price: '₹ 207' },
-    { name: 'Shroom Chocolate', sold: 19, remaining: 17, price: '₹ 105' }
-  ];
+  const topSellingItems = useMemo(() => {
+    // Approximation: count occurrences of product names in orders
+    const countMap = new Map();
+    for (const order of orders) {
+      for (const item of order.items || []) {
+        const key = item.name || (item.product && item.product.name) || 'Unknown';
+        countMap.set(key, (countMap.get(key) || 0) + (item.quantity || 1));
+      }
+    }
+    const list = Array.from(countMap.entries()).map(([name, sold]) => ({ name, sold }));
+    list.sort((a, b) => b.sold - a.sold);
+    return list.slice(0, 5).map(entry => ({
+      name: entry.name,
+      sold: entry.sold,
+      remaining: 0,
+      price: ''
+    }));
+  }, [orders]);
 
   return (
     <Layout title="Dashboard">
       <div className="p-6">
+        {loading && (
+          <div className="mb-6 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          </div>
+        )}
         {/* Header */}
         <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
           <h1 className="text-2xl text-gray-700 font-bold">Dashboard</h1>

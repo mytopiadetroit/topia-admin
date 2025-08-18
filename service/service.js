@@ -1,7 +1,12 @@
 import axios from "axios";
 
 
-  const ConstantsUrl = "https://api.mypsyguide.io/api/";
+  // const ConstantsUrl = typeof window !== 'undefined' && window.location.host.includes('localhost')
+  //   ? "http://localhost:5000/api/"
+  //   : "https://api.mypsyguide.io/api/";
+
+   const ConstantsUrl = "http://localhost:5000/api/";
+      // const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -388,7 +393,10 @@ export {
   fetchAllReviews,
   createReviewApi,
   updateReviewApi,
-  deleteReviewApi
+  deleteReviewApi,
+  fetchSubscribers,
+  updateUserStatusAdmin,
+  fetchAllProducts
 };
 
 // Admin stats helpers
@@ -434,6 +442,36 @@ const deleteReviewApi = async (id, router) => {
     return await Api('delete', `reviews/${id}`, null, router);
   } catch (error) {
     console.error('Error deleting review:', error);
+    throw error;
+  }
+};
+
+// Members/Subscribers helpers (admin)
+const fetchSubscribers = async (router, params = {}) => {
+  try {
+    return await Api('get', 'subscribers', null, router, params);
+  } catch (error) {
+    console.error('Error fetching subscribers:', error);
+    throw error;
+  }
+};
+
+// Update user status (admin)
+const updateUserStatusAdmin = async (id, status, router) => {
+  try {
+    return await Api('put', `users/${id}/status`, { status }, router);
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    throw error;
+  }
+};
+
+// Products helpers
+const fetchAllProducts = async (router, params = {}) => {
+  try {
+    return await Api('get', 'products', null, router, params);
+  } catch (error) {
+    console.error('Error fetching products:', error);
     throw error;
   }
 };
