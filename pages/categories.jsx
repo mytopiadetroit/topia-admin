@@ -233,7 +233,7 @@ const Categories = ({ user, loader }) => {
     <Layout title="Categories">
       <div className="p-6">
         {/* Header */}
-        <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
+        {/* <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
           <h1 className="text-2xl text-gray-700 font-bold">Categories</h1>
           <div className="flex items-center gap-2">
             <div className="text-right">
@@ -250,8 +250,7 @@ const Categories = ({ user, loader }) => {
               </div>
             </div>
           </div>
-        </div>
-
+        </div> */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-xl font-semibold text-gray-800">Categories</h1>
