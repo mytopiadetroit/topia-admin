@@ -60,6 +60,8 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       setActiveModule("reviews");
     } else if (router.pathname.includes("/members")) {
       setActiveModule("members");
+    } else if (router.pathname.includes("/contacts")) {
+      setActiveModule("contacts");
     }
   }, [router.pathname]);
 
@@ -204,6 +206,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 >
                   <Users className={`h-5 w-5 ${activeModule === "members" ? "text-[#80A6F7]" : ""}`} />
                   {!collapsed && <span className="ml-2">Members</span>}
+                </button>
+              </Link>
+
+              <Link href="/contacts">
+                <button
+                  className={getModuleClasses("contacts")}
+                >
+                  <FileText className={`h-5 w-5 ${activeModule === "contacts" ? "text-[#80A6F7]" : ""}`} />
+                  {!collapsed && <span className="ml-2">Contacts</span>}
                 </button>
               </Link>
 
