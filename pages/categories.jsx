@@ -59,7 +59,12 @@ const Categories = ({ user, loader }) => {
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
-  const [currentCategory, setCurrentCategory] = useState({ id: '', category: '' });
+  const [currentCategory, setCurrentCategory] = useState({ 
+  id: '', 
+  category: '', 
+  metaTitle: '', 
+  metaDescription: '' 
+});
 
   const sidebarWidth = "240px";
 
@@ -133,22 +138,27 @@ const Categories = ({ user, loader }) => {
   };
 
   // Modal functions
-  const openAddModal = () => {
-    setModalMode('add');
-    setCurrentCategory({ id: '', category: '' });
-    setShowModal(true);
-  };
+const openAddModal = () => {
+  setModalMode('add');
+  setCurrentCategory({ id: '', category: '', metaTitle: '', metaDescription: '' });
+  setShowModal(true);
+};
 
-  const openEditModal = (category) => {
-    setModalMode('edit');
-    setCurrentCategory({ id: category._id, category: category.category });
-    setShowModal(true);
-  };
+ const openEditModal = (category) => {
+  setModalMode('edit');
+  setCurrentCategory({ 
+    id: category._id, 
+    category: category.category,
+    metaTitle: category.metaTitle || '',
+    metaDescription: category.metaDescription || ''
+  });
+  setShowModal(true);
+};
 
-  const closeModal = () => {
-    setShowModal(false);
-    setCurrentCategory({ id: '', category: '' });
-  };
+ const closeModal = () => {
+  setShowModal(false);
+  setCurrentCategory({ id: '', category: '', metaTitle: '', metaDescription: '' });
+};
 
   const handleInputChange = (e) => {
     setCurrentCategory({
@@ -163,7 +173,11 @@ const Categories = ({ user, loader }) => {
     try {
       if (modalMode === 'add') {
         // Create new category using Api function
-        const result = await createCategory({ category: currentCategory.category }, router);
+        const result = await createCategory({ 
+  category: currentCategory.category,
+  metaTitle: currentCategory.metaTitle,
+  metaDescription: currentCategory.metaDescription
+}, router);
         if (result.success) {
           await Swal.fire({
             icon: 'success',
@@ -177,7 +191,11 @@ const Categories = ({ user, loader }) => {
         }
       } else {
         // Update existing category using Api function
-        const result = await updateCategory(currentCategory.id, { category: currentCategory.category }, router);
+     const result = await updateCategory(currentCategory.id, { 
+  category: currentCategory.category,
+  metaTitle: currentCategory.metaTitle,
+  metaDescription: currentCategory.metaDescription
+}, router);
         if (result.success) {
           await Swal.fire({
             icon: 'success',
@@ -232,26 +250,7 @@ const Categories = ({ user, loader }) => {
   return (
     <Layout title="Categories">
       <div className="p-6">
-        {/* Header */}
-        <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
-          <h1 className="text-2xl text-gray-700 font-bold">Categories</h1>
-          <div className="flex items-center gap-2">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-700">
-                {user?.name || user?.phone || 'Admin'}
-              </p>
-              <p className="text-xs text-gray-500">Admin</p>
-            </div>
-            <div className="h-10 w-10 rounded-full overflow-hidden">
-              <div className="w-full h-full bg-gradient-to-r from-pink-400 to-red-400 flex items-center justify-center">
-                <span className="text-white font-medium text-sm">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
+     
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-xl font-semibold text-gray-800">Categories</h1>
@@ -450,6 +449,35 @@ const Categories = ({ user, loader }) => {
                     required
                   />
                 </div>
+                <div className="mb-4">
+  <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-700 mb-1">
+    Meta Title (SEO)
+  </label>
+  <input
+    type="text"
+    id="metaTitle"
+    name="metaTitle"
+    value={currentCategory.metaTitle}
+    onChange={handleInputChange}
+    className="w-full text-gray-700 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+    placeholder="Enter meta title for SEO"
+  />
+</div>
+
+<div className="mb-4">
+  <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700 mb-1">
+    Meta Description (SEO)
+  </label>
+  <textarea
+    id="metaDescription"
+    name="metaDescription"
+    value={currentCategory.metaDescription}
+    onChange={handleInputChange}
+    rows={3}
+    className="w-full text-gray-700 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+    placeholder="Enter meta description for SEO"
+  />
+</div>
                 
                 <div className="flex justify-end space-x-3">
                   <button

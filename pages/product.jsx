@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { CURRENCY_SIGN } from '../utils/constants';
 
 function Checkbox({ id, checked, onCheckedChange }) {
   return (
@@ -189,7 +191,7 @@ export default function ProductPage() {
                     {/* Product Info with Background */}
                     <div className="mb-4 bg-[#8EAFF6CC] p-3 rounded-lg -mt-2 text-white">
                       <h3 className="font-semibold mb-1">{product.name}</h3>
-                      <p className="text-lg font-bold">${product.price.toFixed(2)}</p>
+                      <p className="text-lg font-bold">{CURRENCY_SIGN}{product.price.toFixed(2)}</p>
                       
                       {/* Tags */}
                       <div className="flex flex-wrap gap-2 mt-2">

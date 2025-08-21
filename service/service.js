@@ -390,19 +390,41 @@ export {
   updateOrderStatusApi,
   deleteOrderApi,
   fetchLoginStatsLast7,
+  fetchLoginStats,
   fetchAllReviews,
   createReviewApi,
   updateReviewApi,
   deleteReviewApi,
   fetchSubscribers,
   updateUserStatusAdmin,
-  fetchAllProducts
+  fetchAllProducts,
+  fetchAllReviewTags,
+  createReviewTagApi,
+  updateReviewTagApi,
+  deleteReviewTagApi,
+  fetchAllContent,
+  fetchContentById,
+  createContentApi,
+  updateContentApi,
+  deleteContentApi,
+  fetchContentStats,
+  fetchContentCategories,
 };
 
 // Admin stats helpers
 const fetchLoginStatsLast7 = async (router) => {
   try {
     return await Api('get', 'users/admin/login-stats/last7', null, router);
+  } catch (error) {
+    console.error('Error fetching login stats:', error);
+    throw error;
+  }
+};
+
+// Admin stats helpers with range param: weekly | monthly | yearly
+const fetchLoginStats = async (router, range = 'weekly') => {
+  try {
+    return await Api('get', 'users/admin/login-stats', null, router, { range });
   } catch (error) {
     console.error('Error fetching login stats:', error);
     throw error;
@@ -446,6 +468,43 @@ const deleteReviewApi = async (id, router) => {
   }
 };
 
+// Review Tags helpers (separate module)
+const fetchAllReviewTags = async (router, params = {}) => {
+  try {
+    return await Api('get', 'review-tags', null, router, params);
+  } catch (error) {
+    console.error('Error fetching review tags:', error);
+    throw error;
+  }
+};
+
+const createReviewTagApi = async (data, router) => {
+  try {
+    return await Api('post', 'review-tags', data, router);
+  } catch (error) {
+    console.error('Error creating review tag:', error);
+    throw error;
+  }
+};
+
+const updateReviewTagApi = async (id, data, router) => {
+  try {
+    return await Api('put', `review-tags/${id}`, data, router);
+  } catch (error) {
+    console.error('Error updating review tag:', error);
+    throw error;
+  }
+};
+
+const deleteReviewTagApi = async (id, router) => {
+  try {
+    return await Api('delete', `review-tags/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting review tag:', error);
+    throw error;
+  }
+};
+
 // Members/Subscribers helpers (admin)
 const fetchSubscribers = async (router, params = {}) => {
   try {
@@ -472,6 +531,70 @@ const fetchAllProducts = async (router, params = {}) => {
     return await Api('get', 'products', null, router, params);
   } catch (error) {
     console.error('Error fetching products:', error);
+    throw error;
+  }
+};
+
+// Content Management helpers (admin)
+const fetchAllContent = async (router, params = {}) => {
+  try {
+    return await Api('get', 'content/admin', null, router, params);
+  } catch (error) {
+    console.error('Error fetching content:', error);
+    throw error;
+  }
+};
+
+const fetchContentById = async (id, router) => {
+  try {
+    return await Api('get', `content/admin/${id}`, null, router);
+  } catch (error) {
+    console.error('Error fetching content:', error);
+    throw error;
+  }
+};
+
+const createContentApi = async (formData, router) => {
+  try {
+    return await ApiFormData('post', 'content/admin', formData, router);
+  } catch (error) {
+    console.error('Error creating content:', error);
+    throw error;
+  }
+};
+
+const updateContentApi = async (id, formData, router) => {
+  try {
+    return await ApiFormData('put', `content/admin/${id}`, formData, router);
+  } catch (error) {
+    console.error('Error updating content:', error);
+    throw error;
+  }
+};
+
+const deleteContentApi = async (id, router) => {
+  try {
+    return await Api('delete', `content/admin/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting content:', error);
+    throw error;
+  }
+};
+
+const fetchContentStats = async (router) => {
+  try {
+    return await Api('get', 'content/admin/stats', null, router);
+  } catch (error) {
+    console.error('Error fetching content stats:', error);
+    throw error;
+  }
+};
+
+const fetchContentCategories = async (router) => {
+  try {
+    return await Api('get', 'content/categories', null, router);
+  } catch (error) {
+    console.error('Error fetching content categories:', error);
     throw error;
   }
 };

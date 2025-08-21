@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { fetchProductsByCategory, fetchAllCategories, createProduct, deleteProduct, updateProductApi, toast } from '../../service/service';
+import { fetchProductsByCategory, fetchAllCategories, createProduct, deleteProduct, updateProductApi, toast, fetchAllReviewTags } from '../../service/service';
 import Swal from 'sweetalert2';
+// import { CURRENCY_SIGN } from '../../utils/constants';
 import { 
   Package, 
   Search, 
@@ -39,7 +40,8 @@ export default function ProductsByCategory() {
     descriptionDetails: '',
     primaryUse: 'therapeutic',
     hasStock: true,
-    images: []
+    images: [],
+    reviewTagIds: []
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -52,10 +54,15 @@ export default function ProductsByCategory() {
     descriptionDetails: '',
     primaryUse: 'therapeutic',
     hasStock: true,
-    imagesNew: []
+    imagesNew: [],
+     imageAltName: '',
+  metaTitle: '',
+  metaDescription: '',
+  reviewTagIds: []
   });
   const [editKeepImages, setEditKeepImages] = useState([]);
   const [category, setCategory] = useState(null);
+  const [availableTags, setAvailableTags] = useState([]);
   const fileInputRef = useRef(null);
   const router = useRouter();
   const { categoryId } = router.query;
@@ -64,6 +71,7 @@ export default function ProductsByCategory() {
     if (categoryId) {
       loadProducts();
       loadCategoryInfo();
+      loadReviewTags();
     }
   }, [categoryId]);
 
@@ -93,6 +101,15 @@ export default function ProductsByCategory() {
       }
     } catch (error) {
       console.error('Error loading category info:', error);
+    }
+  };
+
+  const loadReviewTags = async () => {
+    try {
+      const res = await fetchAllReviewTags(router, { active: true });
+      if (res?.success) setAvailableTags(res.data || []);
+    } catch (e) {
+      console.error('Error loading review tags:', e);
     }
   };
 
@@ -134,7 +151,11 @@ export default function ProductsByCategory() {
       descriptionDetails: product.description?.details || '',
       primaryUse: product.primaryUse || 'therapeutic',
       hasStock: !!product.hasStock,
-      imagesNew: []
+      imagesNew: [],
+       imageAltName: product.imageAltName || '',
+    metaTitle: product.metaTitle || '',
+    metaDescription: product.metaDescription || '',
+    reviewTagIds: (product.reviewTags || []).map(t => t._id)
     });
     setEditKeepImages([...(product.images || [])]);
     setShowEditModal(true);
@@ -167,6 +188,10 @@ export default function ProductsByCategory() {
       fd.append('description', JSON.stringify({ main: editForm.descriptionMain, details: editForm.descriptionDetails }));
       fd.append('existingImages', JSON.stringify(editKeepImages));
       (editForm.imagesNew || []).forEach((file) => fd.append('images', file));
+       fd.append('imageAltName', editForm.imageAltName || '');
+    fd.append('metaTitle', editForm.metaTitle || '');
+    fd.append('metaDescription', editForm.metaDescription || '');
+      fd.append('reviewTags', JSON.stringify(editForm.reviewTagIds || []));
 
       const res = await updateProductApi(editForm.id, fd, router);
       if (res?.success) {
@@ -220,7 +245,8 @@ export default function ProductsByCategory() {
       descriptionDetails: '',
       primaryUse: 'therapeutic',
       hasStock: true,
-      images: []
+      images: [],
+      reviewTagIds: []
     });
     setShowAddModal(true);
   };
@@ -248,6 +274,10 @@ export default function ProductsByCategory() {
       fd.append('category', categoryId);
       fd.append('description', JSON.stringify({ main: form.descriptionMain, details: form.descriptionDetails }));
       form.images.forEach((file) => fd.append('images', file));
+       fd.append('imageAltName', form.imageAltName || '');
+    fd.append('metaTitle', form.metaTitle || '');
+    fd.append('metaDescription', form.metaDescription || '');
+      fd.append('reviewTags', JSON.stringify(form.reviewTagIds || []));
 
       const res = await createProduct(fd, router);
       if (res?.success) {
@@ -494,149 +524,371 @@ export default function ProductsByCategory() {
         )}
 
         {/* Add Product Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">Add Product</h2>
-                <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              <form onSubmit={submitAddProduct} className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Name</label>
-                    <input name="name" value={form.name} onChange={handleChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Price</label>
-                    <input type="number" name="price" value={form.price} onChange={handleChange} required min="0" step="0.01" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Main Description</label>
-                  <textarea name="descriptionMain" value={form.descriptionMain} onChange={handleChange} required rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Detailed Description</label>
-                  <textarea name="descriptionDetails" value={form.descriptionDetails} onChange={handleChange} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
-                    <select name="primaryUse" value={form.primaryUse} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700">
-                      <option value="therapeutic">Therapeutic</option>
-                      <option value="functional">Functional</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
-                    <input type="number" min="0" name="stock" value={form.stock} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
-                  </div>
-                  <div className="flex items-center space-x-2 mt-6">
-                    <input id="hasStock" type="checkbox" name="hasStock" checked={form.hasStock} onChange={handleChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                    <label htmlFor="hasStock" className="text-sm text-gray-700">In Stock</label>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Images</label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                    <p className="text-sm text-gray-600">Click to choose files or drag and drop</p>
-                    <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB each</p>
-                    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
-                    {form.images && form.images.length > 0 && (
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {form.images.map((file, idx) => (
-                          <div key={idx} className="h-20 w-full bg-gray-100 rounded overflow-hidden flex items-center justify-center text-xs text-gray-500">{file.name}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-3 pt-2">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
-                  <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{saving ? 'Saving...' : 'Create Product'}</button>
-                </div>
-              </form>
-            </div>
+      {showAddModal && (
+  <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-y-auto">
+      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 className="text-xl font-semibold text-gray-900">Add Product</h2>
+        <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+      <form onSubmit={submitAddProduct} className="p-6 space-y-4">
+        
+        {/* Name + Price */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Name</label>
+            <input name="name" value={form.name} onChange={handleChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
           </div>
-        )}
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Price</label>
+            <input type="number" name="price" value={form.price} onChange={handleChange} required min="0" step="0.01" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+          </div>
+        </div>
+
+        {/* Descriptions */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Main Description</label>
+          <textarea name="descriptionMain" value={form.descriptionMain} onChange={handleChange} required rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Detailed Description</label>
+          <textarea name="descriptionDetails" value={form.descriptionDetails} onChange={handleChange} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        </div>
+
+        {/* Primary Use + Stock */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
+            <select name="primaryUse" value={form.primaryUse} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700">
+              <option value="therapeutic">Therapeutic</option>
+              <option value="functional">Functional</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
+            <input type="number" min="0" name="stock" value={form.stock} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
+          </div>
+          <div className="flex items-center space-x-2 mt-6">
+            <input id="hasStock" type="checkbox" name="hasStock" checked={form.hasStock} onChange={handleChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+            <label htmlFor="hasStock" className="text-sm text-gray-700">In Stock</label>
+          </div>
+        </div>
+
+        {/* Images */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Images</label>
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <p className="text-sm text-gray-600">Click to choose files or drag and drop</p>
+            <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB each</p>
+            <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
+            {form.images && form.images.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {form.images.map((file, idx) => (
+                  <div key={idx} className="h-20 w-full bg-gray-100 rounded overflow-hidden flex items-center justify-center text-xs text-gray-500">{file.name}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Review Tags (multiple select) */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Review Tags</label>
+          <div className="flex flex-wrap gap-2">
+            {availableTags.map((t) => {
+              const checked = (form.reviewTagIds || []).includes(t._id);
+              return (
+                <label key={t._id} className={`px-3 py-1 rounded-full text-sm cursor-pointer border ${checked ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+                  <input
+                    type="checkbox"
+                    className="mr-2 align-middle"
+                    checked={checked}
+                    onChange={(e) => {
+                      setForm(prev => {
+                        const set = new Set(prev.reviewTagIds || []);
+                        if (e.target.checked) set.add(t._id); else set.delete(t._id);
+                        return { ...prev, reviewTagIds: Array.from(set) };
+                      });
+                    }}
+                  />
+                  {t.label}
+                </label>
+              );
+            })}
+            {availableTags.length === 0 && (
+              <div className="text-sm text-gray-500">No review tags. Create some in Review Tags page.</div>
+            )}
+          </div>
+        </div>
+
+        {/* 👇 New SEO Fields */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Image Alt Name</label>
+          <input type="text" name="imageAltName" value={form.imageAltName} onChange={handleChange} placeholder="Describe the image (for SEO)" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Meta Title</label>
+          <input type="text" name="metaTitle" value={form.metaTitle} onChange={handleChange} placeholder="SEO Meta Title" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        </div>
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Meta Description</label>
+          <textarea name="metaDescription" value={form.metaDescription} onChange={handleChange} rows={3} placeholder="SEO Meta Description" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        </div>
+
+        {/* Submit */}
+        <div className="flex justify-end space-x-3 pt-2">
+          <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
+          <button type="submit" disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{saving ? 'Saving...' : 'Create Product'}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
 
         {/* Edit Product Modal */}
-        {showEditModal && (
-          <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">Edit Product</h2>
-                <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              <form onSubmit={submitEditProduct} className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Name</label>
-                    <input name="name" value={editForm.name} onChange={handleEditChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Price</label>
-                    <input type="number" name="price" value={editForm.price} onChange={handleEditChange} required min="0" step="0.01" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Main Description</label>
-                  <textarea name="descriptionMain" value={editForm.descriptionMain} onChange={handleEditChange} required rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Detailed Description</label>
-                  <textarea name="descriptionDetails" value={editForm.descriptionDetails} onChange={handleEditChange} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
-                    <select name="primaryUse" value={editForm.primaryUse} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700">
-                      <option value="therapeutic">Therapeutic</option>
-                      <option value="functional">Functional</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
-                    <input type="number" min="0" name="stock" value={editForm.stock} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
-                  </div>
-                  <div className="flex items-center space-x-2 mt-6">
-                    <input id="editHasStock" type="checkbox" name="hasStock" checked={editForm.hasStock} onChange={handleEditChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-                    <label htmlFor="editHasStock" className="text-sm text-gray-700">In Stock</label>
-                  </div>
-                </div>
-                {/* Existing Images */}
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Existing Images (uncheck to remove)</label>
-                  <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-                    {(selectedProduct?.images || []).map((img, idx) => (
-                      <label key={idx} className="flex items-center space-x-2 text-sm text-gray-700">
-                        <input type="checkbox" checked={editKeepImages.includes(img)} onChange={() => toggleKeepImage(img)} />
-                        <img src={img} alt={`img-${idx}`} className="h-16 w-16 object-cover rounded" />
-                      </label>
-                    ))}
-                    {(!selectedProduct?.images || selectedProduct.images.length === 0) && (
-                      <div className="text-sm text-gray-500">No images</div>
-                    )}
-                  </div>
-                </div>
-                {/* New Images */}
-                <div>
-                  <label className="block text-sm text-gray-700 mb-1">Add New Images</label>
-                  <input type="file" multiple accept="image/*" onChange={handleEditFileChange} className="block w-full text-sm text-gray-700" />
-                </div>
-                <div className="flex justify-end space-x-3 pt-2">
-                  <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
-                  <button type="submit" disabled={editSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">{editSaving ? 'Saving...' : 'Update Product'}</button>
-                </div>
-              </form>
-            </div>
+      {showEditModal && (
+  <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-y-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <h2 className="text-xl font-semibold text-gray-900">Edit Product</h2>
+        <button
+          onClick={() => setShowEditModal(false)}
+          className="text-gray-400 hover:text-gray-600 p-1"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+
+      {/* Form */}
+      <form onSubmit={submitEditProduct} className="p-6 space-y-4">
+        {/* Name & Price */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Name</label>
+            <input
+              name="name"
+              value={editForm.name}
+              onChange={handleEditChange}
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+                focus:ring-blue-500 focus:border-transparent text-gray-700"
+            />
           </div>
-        )}
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Price</label>
+            <input
+              type="number"
+              name="price"
+              value={editForm.price}
+              onChange={handleEditChange}
+              required
+              min="0"
+              step="0.01"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+                focus:ring-blue-500 focus:border-transparent text-gray-700"
+            />
+          </div>
+        </div>
+
+        {/* Main Description */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Main Description</label>
+          <textarea
+            name="descriptionMain"
+            value={editForm.descriptionMain}
+            onChange={handleEditChange}
+            required
+            rows={3}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+              focus:ring-blue-500 focus:border-transparent text-gray-700"
+          />
+        </div>
+
+        {/* Detailed Description */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Detailed Description</label>
+          <textarea
+            name="descriptionDetails"
+            value={editForm.descriptionDetails}
+            onChange={handleEditChange}
+            rows={4}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+              focus:ring-blue-500 focus:border-transparent text-gray-700"
+          />
+        </div>
+
+        {/* Primary Use + Stock + In Stock */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
+            <select
+              name="primaryUse"
+              value={editForm.primaryUse}
+              onChange={handleEditChange}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+                focus:ring-blue-500 focus:border-transparent text-gray-700"
+            >
+              <option value="therapeutic">Therapeutic</option>
+              <option value="functional">Functional</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
+            <input
+              type="number"
+              min="0"
+              name="stock"
+              value={editForm.stock}
+              onChange={handleEditChange}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+                focus:ring-blue-500 focus:border-transparent text-gray-700"
+              placeholder="e.g., 10"
+            />
+          </div>
+          <div className="flex items-center space-x-2 mt-6">
+            <input
+              id="editHasStock"
+              type="checkbox"
+              name="hasStock"
+              checked={editForm.hasStock}
+              onChange={handleEditChange}
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+            />
+            <label htmlFor="editHasStock" className="text-sm text-gray-700">
+              In Stock
+            </label>
+          </div>
+        </div>
+
+        {/* Existing Images */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">
+            Existing Images (uncheck to remove)
+          </label>
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+            {(selectedProduct?.images || []).map((img, idx) => (
+              <label key={idx} className="flex items-center space-x-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={editKeepImages.includes(img)}
+                  onChange={() => toggleKeepImage(img)}
+                />
+                <img
+                  src={img}
+                  alt={`img-${idx}`}
+                  className="h-16 w-16 object-cover rounded"
+                />
+              </label>
+            ))}
+            {(!selectedProduct?.images || selectedProduct.images.length === 0) && (
+              <div className="text-sm text-gray-500">No images</div>
+            )}
+          </div>
+        </div>
+
+        {/* Add New Images */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Add New Images</label>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleEditFileChange}
+            className="block w-full text-sm text-gray-700"
+          />
+        </div>
+        {/* Review Tags (multiple select) */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Review Tags</label>
+          <div className="flex flex-wrap gap-2">
+            {availableTags.map((t) => {
+              const checked = (editForm.reviewTagIds || []).includes(t._id);
+              return (
+                <label key={t._id} className={`px-3 py-1 rounded-full text-sm cursor-pointer border ${checked ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
+                  <input
+                    type="checkbox"
+                    className="mr-2 align-middle"
+                    checked={checked}
+                    onChange={(e) => {
+                      setEditForm(prev => {
+                        const set = new Set(prev.reviewTagIds || []);
+                        if (e.target.checked) set.add(t._id); else set.delete(t._id);
+                        return { ...prev, reviewTagIds: Array.from(set) };
+                      });
+                    }}
+                  />
+                  {t.label}
+                </label>
+              );
+            })}
+            {availableTags.length === 0 && (
+              <div className="text-sm text-gray-500">No review tags. Create some in Review Tags page.</div>
+            )}
+          </div>
+        </div>
+        <div>
+  <label className="block text-sm text-gray-700 mb-1">Image Alt Name</label>
+  <input
+    type="text"
+    name="imageAltName"
+    value={editForm.imageAltName}
+    onChange={handleEditChange}
+    placeholder="Describe the image (for SEO)"
+    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+      focus:ring-blue-500 focus:border-transparent text-gray-700"
+  />
+</div>
+<div>
+  <label className="block text-sm text-gray-700 mb-1">Meta Title</label>
+  <input
+    type="text"
+    name="metaTitle"
+    value={editForm.metaTitle}
+    onChange={handleEditChange}
+    placeholder="SEO Meta Title"
+    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+      focus:ring-blue-500 focus:border-transparent text-gray-700"
+  />
+</div>
+<div>
+  <label className="block text-sm text-gray-700 mb-1">Meta Description</label>
+  <textarea
+    name="metaDescription"
+    value={editForm.metaDescription}
+    onChange={handleEditChange}
+    rows={3}
+    placeholder="SEO Meta Description"
+    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
+      focus:ring-blue-500 focus:border-transparent text-gray-700"
+  />
+</div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-end space-x-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setShowEditModal(false)}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={editSaving}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+          >
+            {editSaving ? "Saving..." : "Update Product"}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
       </div>
     </Layout>
   );

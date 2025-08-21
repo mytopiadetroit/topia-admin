@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Users,
   FileText,
-  Star
+  Star,
+  BookOpen
 } from "lucide-react";
 import { fetchAllCategories } from "../service/service";
 
@@ -52,12 +53,16 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       setActiveModule("product");
     } else if (router.pathname.includes("/categories")) {
       setActiveModule("categories");
+    } else if (router.pathname.includes("/content")) {
+      setActiveModule("content");
     } else if (router.pathname.includes("/users")) {
       setActiveModule("users");
     } else if (router.pathname.includes("/admin/orders")) {
       setActiveModule("orders");
     } else if (router.pathname.includes("/reviews")) {
       setActiveModule("reviews");
+    } else if (router.pathname.includes("/review-tags")) {
+      setActiveModule("review-tags");
     } else if (router.pathname.includes("/members")) {
       setActiveModule("members");
     } else if (router.pathname.includes("/contacts")) {
@@ -182,6 +187,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 </button>
               </Link>
 
+              <Link href="/content">
+                <button
+                  className={getModuleClasses("content")}
+                >
+                  <BookOpen className={`h-5 w-5 ${activeModule === "content" ? "text-[#80A6F7]" : ""}`} />
+                  {!collapsed && <span className="ml-2">Content</span>}
+                </button>
+              </Link>
+
               <Link href="/stats">
                 <button
                   className={getModuleClasses("stats")}
@@ -226,6 +240,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
     {!collapsed && <span className="ml-2">Reviews</span>}
   </button>
 </Link>
+
+            <Link href="/review-tags">
+              <button
+                className={getModuleClasses("review-tags")}
+              >
+                <Star className={`h-5 w-5 ${activeModule === "review-tags" ? "text-[#80A6F7]" : ""}`} />
+                {!collapsed && <span className="ml-2">Research Tags</span>}
+              </button>
+            </Link>
 
               <Link href="/admin/orders">
                 <button

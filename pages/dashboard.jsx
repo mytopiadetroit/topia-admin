@@ -97,22 +97,22 @@ export default function Dashboard({ user, loader }) {
   ];
 
   const lowStockItems = useMemo(() => {
-    // Assuming hasStock=false or tags include 'low' to denote low stock since there is no quantity field
+    // Filter products with stock less than 5
     const lows = (products || [])
-      .filter(p => p.hasStock === false || (Array.isArray(p.tags) && p.tags.some(t => /low/i.test(t))))
+      .filter(p => p.stock != null && p.stock < 5)
       .slice(0, 5)
       .map(p => ({
         name: p.name,
-        remaining: p.hasStock === false ? 0 : 5,
-        status: p.hasStock === false ? 'Out' : 'Low',
-        bgColor: 'bg-yellow-100',
-        textColor: 'text-yellow-800'
+        remaining: p.stock || 0,
+        status: p.stock === 0 ? 'Out' : 'Low',
+        bgColor: p.stock === 0 ? 'bg-red-100' : 'bg-yellow-100',
+        textColor: p.stock === 0 ? 'text-red-800' : 'text-yellow-800'
       }));
     return lows;
   }, [products]);
 
   const topSellingItems = useMemo(() => {
-    // Approximation: count occurrences of product names in orders
+    // Count occurrences of product names in orders and match with product details
     const countMap = new Map();
     for (const order of orders) {
       for (const item of order.items || []) {
@@ -120,15 +120,21 @@ export default function Dashboard({ user, loader }) {
         countMap.set(key, (countMap.get(key) || 0) + (item.quantity || 1));
       }
     }
-    const list = Array.from(countMap.entries()).map(([name, sold]) => ({ name, sold }));
+    
+    const list = Array.from(countMap.entries()).map(([name, sold]) => {
+      
+      const product = products.find(p => p.name === name);
+      return {
+        name,
+        sold,
+        remaining: product ? (product.stock || 0) : 0,
+        price: product ? `$${product.price}` : 'N/A'
+      };
+    });
+    
     list.sort((a, b) => b.sold - a.sold);
-    return list.slice(0, 5).map(entry => ({
-      name: entry.name,
-      sold: entry.sold,
-      remaining: 0,
-      price: ''
-    }));
-  }, [orders]);
+    return list.slice(0, 5);
+  }, [orders, products]);
 
   return (
     <Layout title="Dashboard">
@@ -139,7 +145,7 @@ export default function Dashboard({ user, loader }) {
           </div>
         )}
         {/* Header */}
-        <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
+        {/* <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
           <h1 className="text-2xl text-gray-700 font-bold">Dashboard</h1>
           <div className="flex items-center gap-2">
             <div className="text-right">
@@ -156,7 +162,7 @@ export default function Dashboard({ user, loader }) {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Dashboard Content */}
         <div className="space-y-6">
