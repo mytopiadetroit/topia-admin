@@ -31,6 +31,7 @@ const ContentManagement = () => {
     try {
       setLoading(true);
       const response = await fetchAllContent(router, filters);
+      console.log('Content fetched:', response);
       if (response.success) {
         setContent(response.data);
         setPagination(response.pagination);

@@ -30,7 +30,8 @@ const EditContent = () => {
   });
   const [files, setFiles] = useState({
     featuredImage: null,
-    videoThumbnail: null
+    videoThumbnail: null,
+    featuredVideo: null
   });
   const [existingImages, setExistingImages] = useState({
     featuredImage: '',
@@ -109,10 +110,19 @@ const EditContent = () => {
 
   const handleFileChange = (e) => {
     const { name, files: selectedFiles } = e.target;
-    setFiles(prev => ({
-      ...prev,
-      [name]: selectedFiles[0]
-    }));
+    if (name === 'featuredVideo') {
+      setFiles(prev => ({
+        ...prev,
+        [name]: selectedFiles[0]
+      }));
+      // Clear videoUrl when file is selected
+      setFormData(prev => ({ ...prev, videoUrl: '' }));
+    } else {
+      setFiles(prev => ({
+        ...prev,
+        [name]: selectedFiles[0]
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -137,6 +147,9 @@ const EditContent = () => {
       }
       if (files.videoThumbnail) {
         submitData.append('videoThumbnail', files.videoThumbnail);
+      }
+      if (files.featuredVideo) {
+        submitData.append('featuredVideo', files.featuredVideo);
       }
 
       const response = await updateContentApi(id, submitData, router);
@@ -311,16 +324,36 @@ const EditContent = () => {
               {formData.type === 'video' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Video URL
+                    Video (URL or Upload)
                   </label>
+                  
+                  {/* URL Input */}
                   <input
                     type="url"
                     name="videoUrl"
                     value={formData.videoUrl}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => {
+                      handleInputChange(e);
+                      if (e.target.value) {
+                        setFiles(prev => ({...prev, featuredVideo: null}));
+                      }
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"
                     placeholder="Enter video URL (YouTube, Vimeo, etc.)"
                   />
+                  
+                  {/* File Upload */}
+                  <input
+                    type="file"
+                    name="featuredVideo"
+                    onChange={handleFileChange}
+                    accept="video/*"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  
+                  <p className="text-xs text-gray-500 mt-1">
+                    Choose either URL or upload a video file
+                  </p>
                 </div>
               )}
             </div>

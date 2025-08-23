@@ -5,8 +5,8 @@ import axios from "axios";
   //   ? "http://localhost:5000/api/"
   //   : "https://api.mypsyguide.io/api/";
 
-  //  const ConstantsUrl = "http://localhost:5000/api/";
-       const ConstantsUrl = "https://api.mypsyguide.io/api/";
+   const ConstantsUrl = "http://localhost:5000/api/";
+      //  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -370,46 +370,6 @@ const setGlobalRouter = (routerInstance) => {
   }
 };
 
-export { 
-  Api, 
-  timeSince, 
-  ApiFormData, 
-  setGlobalRouter, 
-  toast, 
-  setGlobalToast, 
-  fetchAllCategories, 
-  fetchProductsByCategory, 
-  createProduct, 
-  updateProductApi,
-  deleteProduct,
-  fetchAllUsers, 
-  fetchUserById, 
-  updateUser, 
-  deleteUser,
-  fetchAllOrders,
-  updateOrderStatusApi,
-  deleteOrderApi,
-  fetchLoginStatsLast7,
-  fetchLoginStats,
-  fetchAllReviews,
-  createReviewApi,
-  updateReviewApi,
-  deleteReviewApi,
-  fetchSubscribers,
-  updateUserStatusAdmin,
-  fetchAllProducts,
-  fetchAllReviewTags,
-  createReviewTagApi,
-  updateReviewTagApi,
-  deleteReviewTagApi,
-  fetchAllContent,
-  fetchContentById,
-  createContentApi,
-  updateContentApi,
-  deleteContentApi,
-  fetchContentStats,
-  fetchContentCategories,
-};
 
 // Admin stats helpers
 const fetchLoginStatsLast7 = async (router) => {
@@ -535,6 +495,53 @@ const fetchAllProducts = async (router, params = {}) => {
   }
 };
 
+// Reward Management helpers (admin)
+const fetchAllRewardRequests = async (router, params = {}) => {
+  try {
+    return await Api('get', 'rewards/admin/requests', null, router, params);
+  } catch (error) {
+    console.error('Error fetching reward requests:', error);
+    throw error;
+  }
+};
+
+const updateRewardStatus = async (id, data, router) => {
+  try {
+    return await Api('put', `rewards/admin/requests/${id}`, data, router);
+  } catch (error) {
+    console.error('Error updating reward status:', error);
+    throw error;
+  }
+};
+
+const fetchRewardStats = async (router) => {
+  try {
+    return await Api('get', 'rewards/admin/stats', null, router);
+  } catch (error) {
+    console.error('Error fetching reward stats:', error);
+    throw error;
+  }
+};
+
+// Admin Profile APIs
+const fetchAdminProfile = async (router) => {
+  try {
+    return await Api('get', 'admin/profile', null, router);
+  } catch (error) {
+    console.error('Error fetching admin profile:', error);
+    throw error;
+  }
+};
+
+const updateAdminProfile = async (router, profileData) => {
+  try {
+    return await Api('put', 'admin/profile', profileData, router);
+  } catch (error) {
+    console.error('Error updating admin profile:', error);
+    throw error;
+  }
+};
+
 // Content Management helpers (admin)
 const fetchAllContent = async (router, params = {}) => {
   try {
@@ -597,4 +604,50 @@ const fetchContentCategories = async (router) => {
     console.error('Error fetching content categories:', error);
     throw error;
   }
+};
+
+export { 
+  Api, 
+  timeSince, 
+  ApiFormData, 
+  setGlobalRouter, 
+  toast, 
+  setGlobalToast, 
+  fetchAllCategories, 
+  fetchProductsByCategory, 
+  createProduct, 
+  updateProductApi,
+  deleteProduct,
+  fetchAllUsers, 
+  fetchUserById, 
+  updateUser, 
+  deleteUser,
+  fetchAllOrders,
+  updateOrderStatusApi,
+  deleteOrderApi,
+  fetchLoginStatsLast7,
+  fetchLoginStats,
+  fetchAllReviews,
+  createReviewApi,
+  updateReviewApi,
+  deleteReviewApi,
+  fetchSubscribers,
+  updateUserStatusAdmin,
+  fetchAllProducts,
+  fetchAllReviewTags,
+  createReviewTagApi,
+  updateReviewTagApi,
+  deleteReviewTagApi,
+  fetchAllRewardRequests,
+  updateRewardStatus,
+  fetchRewardStats,
+  fetchAdminProfile,
+  updateAdminProfile,
+  fetchAllContent,
+  fetchContentById,
+  createContentApi,
+  updateContentApi,
+  deleteContentApi,
+  fetchContentStats,
+  fetchContentCategories
 };

@@ -50,10 +50,11 @@ export default function LoginPage({ user, loader }) {
       }, router);
       
       if (response.success) {
-        // Check if user has admin role
+      
+       
         if (response.user && response.user.role === 'admin') {
-          // Store user data and token (token here represents pre-OTP session)
-          localStorage.setItem('userDetail', JSON.stringify(response.user));
+          
+          localStorage.setItem('adminDetail', JSON.stringify(response.user));
           if (response.token) localStorage.setItem('token', response.token);
           
           // Show success toast message

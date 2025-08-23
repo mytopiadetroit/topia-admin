@@ -14,7 +14,7 @@ export default function OtpVerificationPage({ user, loader }) {
   useEffect(() => {
     // Get user details from localStorage
     if (typeof window !== 'undefined') {
-      const userDetail = localStorage.getItem('userDetail');
+      const userDetail = localStorage.getItem('adminDetail');
       if (userDetail) {
         const user = JSON.parse(userDetail);
         if (user.phone) {
@@ -53,9 +53,10 @@ export default function OtpVerificationPage({ user, loader }) {
         if (response.token) {
           localStorage.setItem('token', response.token);
         }
-        if (response.user) {
-          localStorage.setItem('userDetail', JSON.stringify(response.user));
-        }
+      if (response.user) {
+  console.log('OTP Response User:', response.user); 
+  localStorage.setItem('adminDetail', JSON.stringify(response.user));
+}
         
         // Show success toast message
         toast.success('Login successful!', {

@@ -13,7 +13,9 @@ import {
   Users,
   FileText,
   Star,
-  BookOpen
+  BookOpen,
+  Gift,
+  Settings
 } from "lucide-react";
 import { fetchAllCategories } from "../service/service";
 
@@ -67,6 +69,8 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       setActiveModule("members");
     } else if (router.pathname.includes("/contacts")) {
       setActiveModule("contacts");
+    } else if (router.pathname.includes("/rewards")) {
+      setActiveModule("rewards");
     }
   }, [router.pathname]);
 
@@ -129,7 +133,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
         </div>
 
           {/* Navigation */}
-          <nav className="mb-6 px-2">
+          <nav className="mb-24 px-2">
             <div className="space-y-1">
               <Link href="/dashboard">
                 <button
@@ -256,6 +260,24 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 >
                   <FileText className={`h-5 w-5 ${activeModule === "orders" ? "text-[#80A6F7]" : ""}`} />
                   {!collapsed && <span className="ml-2">Orders</span>}
+                </button>
+              </Link>
+
+              <Link href="/rewards">
+                <button
+                  className={getModuleClasses("rewards")}
+                >
+                  <Gift className={`h-5 w-5 ${activeModule === "rewards" ? "text-[#80A6F7]" : ""}`} />
+                  {!collapsed && <span className="ml-2">Rewards</span>}
+                </button>
+              </Link>
+
+              <Link href="/settings">
+                <button
+                  className={getModuleClasses("settings")}
+                >
+                  <Settings className={`h-5 w-5 ${activeModule === "settings" ? "text-[#80A6F7]" : ""}`} />
+                  {!collapsed && <span className="ml-2">Settings</span>}
                 </button>
               </Link>
             </div>
