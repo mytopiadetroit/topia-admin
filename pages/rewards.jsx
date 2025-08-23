@@ -76,10 +76,10 @@ const RewardsManagement = () => {
 
     setActionLoading(true);
     try {
-      const response = await updateRewardStatus(router, rewardId, {
+      const response = await updateRewardStatus(rewardId, {
         status: newStatus,
         adminNotes: ''
-      });
+      }, router);
       
       if (response.success) {
         // Show success message
@@ -457,14 +457,14 @@ const RewardsManagement = () => {
             {selectedRequest.status === 'pending' && (
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
                 <button
-                  onClick={() => handleStatusUpdate(selectedRequest._id, 'rejected', 'Rejected by admin')}
+                  onClick={() => handleStatusUpdate(selectedRequest._id, 'rejected')}
                   disabled={actionLoading}
                   className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
                 >
                   {actionLoading ? 'Processing...' : 'Reject'}
                 </button>
                 <button
-                  onClick={() => handleStatusUpdate(selectedRequest._id, 'approved', 'Approved by admin')}
+                  onClick={() => handleStatusUpdate(selectedRequest._id, 'approved')}
                   disabled={actionLoading}
                   className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
                 >

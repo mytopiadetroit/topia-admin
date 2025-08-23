@@ -22,7 +22,6 @@ import { fetchAllCategories } from "../service/service";
 export default function Sidebar({ className = "", isMobileOpen = false, onClose }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activeModule, setActiveModule] = useState("");
-  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -86,54 +85,31 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
     }
   };
 
-  const handleLogoutClick = () => {
-    setShowLogoutPopup(true);
-  };
-
-  const handleLogoutConfirm = () => {
-    // Remove user tokens from localStorage
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('token');
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('userDetail');
-    
-    // Close the popup
-    setShowLogoutPopup(false);
-    
-    // Navigate to the home page
-    router.push('/');
-  };
-
-  const handleLogoutCancel = () => {
-    setShowLogoutPopup(false);
-  };
 
   return (
     <>
       <div
-        className={`sidebar-fixed bg-gradient-to-b from-[#80A6F7] to-[#80A6F7] text-white transition-transform duration-300 transform ${
+        className={`sidebar-fixed bg-gradient-to-b from-[#80A6F7] to-[#80A6F7] text-white transition-transform duration-300 transform h-screen flex flex-col ${
           collapsed && typeof window !== 'undefined' && window.innerWidth >= 768 ? "w-[70px]" : "w-[240px]"
         } ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"} ${className}`}
       >
-        <div>
-          {/* Logo */}
+        {/* Header with Logo */}
+        <div className="flex-shrink-0">
           <div className="flex items-center px-4 py-6">
             <div className="flex items-center">
               {!collapsed && (
                 <div className="flex flex-col items-center">
                   <div className="w-32 h-32 rounded-full ml-6 flex items-center justify-center mb-2">
-                    {/* <span className="text-blue-600 text-lg font-bold">🍄</span> */}
                     <img src="/logo.png" alt="" />
                   </div>
-                  {/* <span className="text-white font-bold text-lg">ShroomTopia</span> */}
                 </div>
               )}
+            </div>
           </div>
-           
         </div>
 
-          {/* Navigation */}
-          <nav className="mb-24 px-2">
+          {/* Navigation with scrolling */}
+          <nav className="flex-1 overflow-y-auto px-2 pb-4">
             <div className="space-y-1">
               <Link href="/dashboard">
                 <button
@@ -281,54 +257,9 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 </button>
               </Link>
             </div>
-        </nav>
-        </div>
-        
-        {/* Logout button */}
-        <div className="mb-8 px-4">
-          <button
-            onClick={handleLogoutClick}
-            className="w-full flex items-center justify-start text-white hover:bg-blue-600 p-2 rounded-lg"
-          >
-            <LogOut className="h-5 w-5" />
-            {!collapsed && <span className="ml-2">Log out</span>}
-          </button>
-        </div>
+          </nav>
       </div>
 
-      {/* Logout Confirmation Popup */}
-      {showLogoutPopup && (
-        <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-72 max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Log out Confirmation</h3>
-              <button
-                onClick={handleLogoutCancel}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="mb-5">
-              <p className="text-sm text-gray-500">Are you sure you want to log out?</p>
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={handleLogoutCancel}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium rounded-md"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogoutConfirm}
-                className="px-4 py-2 bg-[#80A6F7] hover:bg-blue-700 text-white text-sm font-medium rounded-md"
-              >
-                Log out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
