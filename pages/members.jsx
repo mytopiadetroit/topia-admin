@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../components/sidebar';
-import { fetchAllUsers, deleteUser, fetchUserById, toast } from '../service/service';
+import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin } from '../service/service';
+import Swal from 'sweetalert2';
 import { 
   Users, 
   Search, 
@@ -25,6 +26,9 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
@@ -33,14 +37,17 @@ export default function UsersPage() {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [page]);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetchAllUsers(router);
+      const response = await fetchAllUsers(router, { page, limit: 10 });
       if (response.success) {
         setUsers(response.data || []);
+        if (response.meta) {
+          setTotalPages(response.meta.totalPages || 1);
+        }
       } else {
         toast.error('Failed to load users');
       }
@@ -131,6 +138,69 @@ export default function UsersPage() {
     );
   };
 
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      suspend: 'bg-red-100 text-red-800',
+      verified: 'bg-green-100 text-green-800'
+    };
+    const label = status || 'pending';
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[label] || 'bg-gray-100 text-gray-800'}`}>
+        {label}
+      </span>
+    );
+  };
+
+const handleChangeStatus = async (userId, status) => {
+  try {
+    // First show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Confirm Status Change',
+      text: `Are you sure you want to change status to ${status}?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, update it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      const res = await updateUserStatusAdmin(userId, status, router);
+      if (res.success) {
+        // Show success message with SweetAlert2
+        await Swal.fire({
+          title: 'Success!',
+          text: 'User status has been updated successfully.',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        loadUsers();
+      } else {
+        // Show error message with SweetAlert2
+        await Swal.fire({
+          title: 'Error!',
+          text: res.message || 'Failed to update status',
+          icon: 'error',
+          confirmButtonColor: '#3085d6'
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Status update error:', error);
+    
+    await Swal.fire({
+      title: 'Error!',
+      text: 'Error updating status',
+      icon: 'error',
+      confirmButtonColor: '#3085d6'
+    });
+  }
+};
+
   const formatBirthday = (birthday) => {
     if (!birthday) return 'Not provided';
     return `${birthday.day} ${birthday.month} ${birthday.year}`;
@@ -138,9 +208,9 @@ export default function UsersPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex-1 ml-[240px] p-8">
+      <div className="flex min-h-screen bg-gray-50">
+        <div className="hidden md:block"><Sidebar /></div>
+        <div className="flex-1 md:ml-[240px] p-8">
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
           </div>
@@ -150,15 +220,40 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 ml-[240px] p-8">
+    <div className="flex min-h-screen bg-gray-50 relative">
+      {/* Mobile top bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#80A6F7] text-white flex items-center justify-between px-4 py-3">
+        <button onClick={() => setSidebarOpen(true)} className="p-2">
+          <span className="sr-only">Open sidebar</span>
+          <div className="space-y-1">
+            <span className="block w-6 h-0.5 bg-white"></span>
+            <span className="block w-6 h-0.5 bg-white"></span>
+            <span className="block w-6 h-0.5 bg-white"></span>
+          </div>
+        </button>
+        <span className="font-semibold">Users</span>
+        <div className="w-8" />
+      </div>
+
+      {/* Sidebar */}
+      <div className="hidden md:block"><Sidebar /></div>
+      {/* Mobile sidebar drawer */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-black/50" />
+        </div>
+      )}
+      <div className="md:hidden">
+        <Sidebar isMobileOpen={sidebarOpen} />
+      </div>
+
+      <div className="flex-1 md:ml-[240px] p-6 pt-20 md:pt-6">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Members</h1>
-              {/* <p className="text-gray-600 mt-2">Manage all registered users</p> */}
+             
             </div>
                          {/* <div className="flex items-center space-x-3">
                <button className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
@@ -190,15 +285,7 @@ export default function UsersPage() {
               </div>
               
               {/* Role Filter */}
-              {/* <select
-                value={filterRole}
-                onChange={(e) => setFilterRole(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-              </select> */}
+            
             </div>
             
             <div className="text-sm text-gray-500">
@@ -207,27 +294,24 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+         {/* Users Table */}
+         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Member
+                    User
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contact
                   </th>
-                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
-                  </th> */}
+                
+                
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
                   </th>
-                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th> */}
+                 
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -264,24 +348,12 @@ export default function UsersPage() {
                       <div className="text-sm text-gray-900">{user.email}</div>
                       <div className="text-sm text-gray-500">{user.phone}</div>
                     </td>
-                    {/* <td className="px-6 py-4 whitespace-nowrap">
-                      {getRoleBadge(user.role)}
-                    </td> */}
+                 
+                  
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(user.createdAt)}
                     </td>
-                                         {/* <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                       <div className="flex items-center space-x-2">
-                         <button
-                           onClick={() => handleViewUser(user._id)}
-                           className="text-blue-600 hover:text-blue-900 p-1"
-                           title="View User"
-                         >
-                           <Eye className="h-4 w-4" />
-                         </button>
-                        
-                       </div>
-                     </td> */}
+                   
                   </tr>
                 ))}
               </tbody>
@@ -300,7 +372,28 @@ export default function UsersPage() {
               </p>
             </div>
                      )}
-         </div>
+          </div>
+
+          {/* Pagination inside table area */}
+          <div className="px-4 py-3 bg-white border-t border-gray-200 flex items-center justify-between">
+            <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
+            <div className="space-x-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className={`px-3 py-2 rounded border ${page === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className={`px-3 py-2 rounded border ${page === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
        </div>
 
        {/* User Details Modal */}
@@ -409,10 +502,10 @@ export default function UsersPage() {
                          <span className="font-medium text-gray-600 w-24">Joined:</span>
                          <span className="text-gray-900">{formatDate(selectedUser.createdAt)}</span>
                        </div>
-                       {selectedUser.governmentId && (
+                       {selectedUser.status && (
                          <div className="flex items-center text-sm">
-                           <span className="font-medium text-gray-600 w-24">Government ID:</span>
-                           <span className="text-gray-900">{selectedUser.governmentId}</span>
+                           <span className="font-medium text-gray-600 w-24">Status:</span>
+                           <span className="text-gray-900">{getStatusBadge(selectedUser.status)}</span>
                          </div>
                        )}
                      </div>
@@ -427,6 +520,28 @@ export default function UsersPage() {
                          alt={selectedUser.fullName}
                          className="h-32 w-32 rounded-lg object-cover"
                        />
+                     </div>
+                   )}
+
+                   {selectedUser.governmentId && (
+                     <div className="bg-gray-50 rounded-lg p-4">
+                       <h4 className="text-sm font-medium text-gray-700 mb-3">Government ID</h4>
+                       {/\.pdf($|\?)/i.test(selectedUser.governmentId) ? (
+                         <div className="w-full h-96">
+                           <iframe src={selectedUser.governmentId} className="w-full h-full rounded" />
+                         </div>
+                       ) : (
+                         <img
+                           src={selectedUser.governmentId}
+                           alt="Government ID"
+                           className="max-h-96 rounded object-contain"
+                         />
+                       )}
+                       <div className="mt-2">
+                         <a href={selectedUser.governmentId} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
+                           Open original
+                         </a>
+                       </div>
                      </div>
                    )}
                  </div>
@@ -444,16 +559,6 @@ export default function UsersPage() {
                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                >
                  Close
-               </button>
-               <button
-                 onClick={() => {
-                   closeUserModal();
-                   handleEditUser(selectedUser._id);
-                 }}
-                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
-               >
-                 <Edit className="h-4 w-4 mr-2" />
-                 Edit User
                </button>
              </div>
            </div>

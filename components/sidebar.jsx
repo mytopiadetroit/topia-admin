@@ -22,6 +22,7 @@ import { fetchAllCategories } from "../service/service";
 export default function Sidebar({ className = "", isMobileOpen = false, onClose }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activeModule, setActiveModule] = useState("");
+  const [activeCategory, setActiveCategory] = useState("");
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -48,30 +49,60 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
 
   // Update active module based on the current URL path
   useEffect(() => {
-    if (router.pathname.includes("/dashboard")) {
+    const currentPath = router.asPath || router.pathname;
+    console.log("Current path:", currentPath); // Debug log
+    
+    if (currentPath.includes("/dashboard")) {
       setActiveModule("dashboard");
-    } else if (router.pathname.includes("/product")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/products/")) {
       setActiveModule("product");
-    } else if (router.pathname.includes("/categories")) {
+      setProductDropdownOpen(true);
+      // Extract category ID from URL like /products/categoryId
+      const pathParts = currentPath.split("/products/");
+      if (pathParts.length > 1) {
+        const categoryId = pathParts[1].split("/")[0].split("?")[0]; // Handle query params too
+        console.log("Extracted category ID:", categoryId); // Debug log
+        setActiveCategory(categoryId);
+      }
+    } else if (currentPath.includes("/product")) {
+      setActiveModule("product");
+      setActiveCategory("");
+    } else if (currentPath.includes("/categories")) {
       setActiveModule("categories");
-    } else if (router.pathname.includes("/content")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/content")) {
       setActiveModule("content");
-    } else if (router.pathname.includes("/users")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/stats")) {
+      setActiveModule("stats");
+      setActiveCategory("");
+    } else if (currentPath.includes("/users")) {
       setActiveModule("users");
-    } else if (router.pathname.includes("/admin/orders")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/admin/orders")) {
       setActiveModule("orders");
-    } else if (router.pathname.includes("/reviews")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/reviews")) {
       setActiveModule("reviews");
-    } else if (router.pathname.includes("/review-tags")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/review-tags")) {
       setActiveModule("review-tags");
-    } else if (router.pathname.includes("/members")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/members")) {
       setActiveModule("members");
-    } else if (router.pathname.includes("/contacts")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/contacts")) {
       setActiveModule("contacts");
-    } else if (router.pathname.includes("/rewards")) {
+      setActiveCategory("");
+    } else if (currentPath.includes("/rewards")) {
       setActiveModule("rewards");
+      setActiveCategory("");
+    } else if (currentPath.includes("/settings")) {
+      setActiveModule("settings");
+      setActiveCategory("");
     }
-  }, [router.pathname]);
+  }, [router.asPath, router.pathname]);
 
   const getModuleClasses = (moduleName) => {
     const baseClasses = `w-full flex items-center justify-start p-2 rounded-lg ${
@@ -85,6 +116,17 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
     }
   };
 
+  const getCategoryClasses = (categoryId) => {
+    const baseClasses = "w-full text-left px-4 py-2 text-sm rounded";
+    
+    console.log("Category ID:", categoryId, "Active Category:", activeCategory, "Match:", activeCategory === categoryId);
+    
+    if (activeCategory === categoryId) {
+      return `${baseClasses} bg-white text-blue-600 font-medium`;
+    } else {
+      return `${baseClasses} text-blue-100 hover:bg-blue-600`;
+    }
+  };
 
   return (
     <>
@@ -146,7 +188,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                     ) : categories.length > 0 ? (
                       categories.map((category) => (
                         <Link key={category._id} href={`/products/${category._id}`}>
-                          <button className="w-full text-left px-4 py-2 text-sm text-blue-100 hover:bg-blue-600 rounded">
+                          <button className={getCategoryClasses(category._id)}>
                             {category.category}
                           </button>
                         </Link>
@@ -213,13 +255,13 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
               </Link>
 
             <Link href="/reviews">
-  <button
-    className={getModuleClasses("reviews")}
-  >
-    <Star className={`h-5 w-5 ${activeModule === "reviews" ? "text-[#80A6F7]" : ""}`} />
-    {!collapsed && <span className="ml-2">Reviews</span>}
-  </button>
-</Link>
+              <button
+                className={getModuleClasses("reviews")}
+              >
+                <Star className={`h-5 w-5 ${activeModule === "reviews" ? "text-[#80A6F7]" : ""}`} />
+                {!collapsed && <span className="ml-2">Reviews</span>}
+              </button>
+            </Link>
 
             <Link href="/review-tags">
               <button

@@ -176,6 +176,77 @@ export default function ProductsByCategory() {
 
   const submitEditProduct = async (e) => {
     e.preventDefault();
+     if (!editForm.name.trim()) {
+    toast.error('Product name is required');
+    return;
+  }
+  if (!editForm.price || editForm.price <= 0) {
+    toast.error('Valid price is required');
+    return;
+  }
+  if (!editForm.stock || editForm.stock < 0) {
+    toast.error('Valid stock quantity is required');
+    return;
+  }
+  if (!editForm.descriptionMain.trim()) {
+    toast.error('Main description is required');
+    return;
+  }
+  if (!editForm.descriptionDetails.trim()) {
+    toast.error('Detailed description is required');
+    return;
+  }
+  
+  if (editKeepImages.length === 0 && (!editForm.imagesNew || editForm.imagesNew.length === 0)) {
+    toast.error('At least one image is required');
+    return;
+  }
+
+  if (!editForm.metaTitle.trim()) {
+    toast.error('Meta title is required for SEO');
+    return;
+  }
+  if (!editForm.metaDescription.trim()) {
+    toast.error('Meta description is required for SEO');
+    return;
+  }
+
+  
+    if (!form.name.trim()) {
+    toast.error('Product name is required');
+    return;
+  }
+  if (!form.price || form.price <= 0) {
+    toast.error('Valid price is required');
+    return;
+  }
+  if (!form.stock || form.stock < 0) {
+    toast.error('Valid stock quantity is required');
+    return;
+  }
+  if (!form.descriptionMain.trim()) {
+    toast.error('Main description is required');
+    return;
+  }
+  if (!form.descriptionDetails.trim()) {
+    toast.error('Detailed description is required');
+    return;
+  }
+  
+  if (form.images.length === 0) {
+    toast.error('At least one image is required');
+    return;
+  }
+ 
+  if (!form.metaTitle.trim()) {
+    toast.error('Meta title is required for SEO');
+    return;
+  }
+  if (!form.metaDescription.trim()) {
+    toast.error('Meta description is required for SEO');
+    return;
+  }
+
     try {
       setEditSaving(true);
       const fd = new FormData();
@@ -236,20 +307,23 @@ export default function ProductsByCategory() {
     }
   };
 
-  const openAddModal = () => {
-    setForm({
-      name: '',
-      price: '',
-      stock: '',
-      descriptionMain: '',
-      descriptionDetails: '',
-      primaryUse: 'therapeutic',
-      hasStock: true,
-      images: [],
-      reviewTagIds: []
-    });
-    setShowAddModal(true);
-  };
+const openAddModal = () => {
+  setForm({
+    name: '',
+    price: '',
+    stock: '0',
+    descriptionMain: '',
+    descriptionDetails: '',
+    primaryUse: 'therapeutic',
+    hasStock: true,
+    images: [],
+    imageAltName: '',
+    metaTitle: '',
+    metaDescription: '',
+    reviewTagIds: []
+  });
+  setShowAddModal(true);
+};
 
   const handleFileChange = (e) => {
     setForm(prev => ({ ...prev, images: Array.from(e.target.files || []) }));
@@ -261,6 +335,48 @@ export default function ProductsByCategory() {
   };
 
   const submitAddProduct = async (e) => {
+     if (!form.images || form.images.length === 0) {
+    toast.error('At least one product image is required');
+    return;
+  }
+    if (!form.name.trim()) {
+    toast.error('Product name is required');
+    return;
+  }
+  if (!form.price || form.price <= 0) {
+    toast.error('Valid price is required');
+    return;
+  }
+  if (!form.stock || form.stock < 0) {
+    toast.error('Valid stock quantity is required');
+    return;
+  }
+  if (!form.descriptionMain.trim()) {
+    toast.error('Main description is required');
+    return;
+  }
+  if (!form.descriptionDetails.trim()) {
+    toast.error('Detailed description is required');
+    return;
+  }
+  if (!form.primaryUse) {
+    toast.error('Primary use is required');
+    return;
+  }
+  if (form.images.length === 0) {
+    toast.error('At least one image is required');
+    return;
+  }
+  if (!form.imageAltName.trim()) {
+    toast.error('Image alt name is required for SEO');
+    return;
+  }
+  
+  if (!form.metaDescription.trim()) {
+    toast.error('Meta description is required for SEO');
+    return;
+  }
+ 
     e.preventDefault();
     if (!categoryId) return;
     try {
@@ -362,7 +478,7 @@ export default function ProductsByCategory() {
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input type="text" placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                <input type="text" required placeholder="Search products..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
               </div>
             </div>
             <div className="text-sm text-gray-500">{filteredProducts.length} of {products.length} products</div>
@@ -539,7 +655,7 @@ export default function ProductsByCategory() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-700 mb-1">Name</label>
-            <input name="name" value={form.name} onChange={handleChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+            <input name="name"  value={form.name} onChange={handleChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
           </div>
           <div>
             <label className="block text-sm text-gray-700 mb-1">Price</label>
@@ -568,30 +684,33 @@ export default function ProductsByCategory() {
           </div>
           <div>
             <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
-            <input type="number" min="0" name="stock" value={form.stock} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
+            <input type="number" required min="0" name="stock" value={form.stock} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
           </div>
           <div className="flex items-center space-x-2 mt-6">
-            <input id="hasStock" type="checkbox" name="hasStock" checked={form.hasStock} onChange={handleChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
+            <input id="hasStock" required type="checkbox" name="hasStock" checked={form.hasStock} onChange={handleChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
             <label htmlFor="hasStock" className="text-sm text-gray-700">In Stock</label>
           </div>
         </div>
 
         {/* Images */}
         <div>
-          <label className="block text-sm text-gray-700 mb-1">Images</label>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-            <p className="text-sm text-gray-600">Click to choose files or drag and drop</p>
-            <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB each</p>
-            <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={handleFileChange} className="hidden" />
-            {form.images && form.images.length > 0 && (
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                {form.images.map((file, idx) => (
-                  <div key={idx} className="h-20 w-full bg-gray-100 rounded overflow-hidden flex items-center justify-center text-xs text-gray-500">{file.name}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+  <label className="block text-sm text-gray-700 mb-1">Images <span className="text-red-500">*</span></label>
+  <div className={`border-2 border-dashed rounded-lg p-4 text-center hover:border-blue-400 transition cursor-pointer ${form.images.length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-300'}`} onClick={() => fileInputRef.current?.click()}>
+    <p className="text-sm text-gray-600">Click to choose files or drag and drop</p>
+    <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB each (Required)</p>
+    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={handleFileChange} required className="hidden" />
+    {form.images && form.images.length > 0 && (
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {form.images.map((file, idx) => (
+          <div key={idx} className="h-20 w-full bg-gray-100 rounded overflow-hidden flex items-center justify-center text-xs text-gray-500">{file.name}</div>
+        ))}
+      </div>
+    )}
+    {form.images.length === 0 && (
+      <p className="text-xs text-red-500 mt-2">Please select at least one image</p>
+    )}
+  </div>
+</div>
 
         {/* Review Tags (multiple select) */}
         <div>
@@ -626,11 +745,11 @@ export default function ProductsByCategory() {
         {/* 👇 New SEO Fields */}
         <div>
           <label className="block text-sm text-gray-700 mb-1">Image Alt Name</label>
-          <input type="text" name="imageAltName" value={form.imageAltName} onChange={handleChange} placeholder="Describe the image (for SEO)" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+          <input type="text"  name="imageAltName" value={form.imageAltName} onChange={handleChange} placeholder="Describe the image (for SEO)" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
         </div>
         <div>
           <label className="block text-sm text-gray-700 mb-1">Meta Title</label>
-          <input type="text" name="metaTitle" value={form.metaTitle} onChange={handleChange} placeholder="SEO Meta Title" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+          <input type="text" required name="metaTitle" value={form.metaTitle} onChange={handleChange} placeholder="SEO Meta Title" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
         </div>
         <div>
           <label className="block text-sm text-gray-700 mb-1">Meta Description</label>
@@ -672,6 +791,7 @@ export default function ProductsByCategory() {
             <input
               name="name"
               value={editForm.name}
+              
               onChange={handleEditChange}
               required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
@@ -715,6 +835,7 @@ export default function ProductsByCategory() {
             name="descriptionDetails"
             value={editForm.descriptionDetails}
             onChange={handleEditChange}
+            required
             rows={4}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
               focus:ring-blue-500 focus:border-transparent text-gray-700"
@@ -742,6 +863,7 @@ export default function ProductsByCategory() {
               type="number"
               min="0"
               name="stock"
+              required
               value={editForm.stock}
               onChange={handleEditChange}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 
@@ -754,6 +876,7 @@ export default function ProductsByCategory() {
               id="editHasStock"
               type="checkbox"
               name="hasStock"
+              required
               checked={editForm.hasStock}
               onChange={handleEditChange}
               className="h-4 w-4 text-blue-600 border-gray-300 rounded"
@@ -774,6 +897,7 @@ export default function ProductsByCategory() {
               <label key={idx} className="flex items-center space-x-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
+                  required
                   checked={editKeepImages.includes(img)}
                   onChange={() => toggleKeepImage(img)}
                 />
@@ -799,6 +923,7 @@ export default function ProductsByCategory() {
             accept="image/*"
             onChange={handleEditFileChange}
             className="block w-full text-sm text-gray-700"
+            required
           />
         </div>
         {/* Review Tags (multiple select) */}
@@ -811,6 +936,7 @@ export default function ProductsByCategory() {
                 <label key={t._id} className={`px-3 py-1 rounded-full text-sm cursor-pointer border ${checked ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
                   <input
                     type="checkbox"
+                  
                     className="mr-2 align-middle"
                     checked={checked}
                     onChange={(e) => {
@@ -847,6 +973,7 @@ export default function ProductsByCategory() {
   <input
     type="text"
     name="metaTitle"
+    required
     value={editForm.metaTitle}
     onChange={handleEditChange}
     placeholder="SEO Meta Title"
@@ -859,6 +986,7 @@ export default function ProductsByCategory() {
   <textarea
     name="metaDescription"
     value={editForm.metaDescription}
+    required
     onChange={handleEditChange}
     rows={3}
     placeholder="SEO Meta Description"
