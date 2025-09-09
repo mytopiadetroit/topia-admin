@@ -524,6 +524,44 @@ const handleChangeStatus = async (userId, status) => {
                      </div>
                    </div>
 
+                   <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Account Created</h3>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {new Date(selectedUser.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</h3>
+                    <div className="mt-1">
+                      {getStatusBadge(selectedUser.status)}
+                    </div>
+                  </div>
+                </div>
+
+                   {/* Medication Information */}
+                   <div className="mt-6 space-y-2">
+                     <h3 className="text-sm font-medium text-gray-700">Medication Information</h3>
+                     <div className="bg-gray-50 p-4 rounded-lg">
+                       <div className="grid grid-cols-2 gap-4">
+                         <div>
+                           <h4 className="text-xs font-medium text-gray-500">Takes Medication</h4>
+                           <p className="mt-1 text-sm text-gray-900">
+                             {selectedUser.takesMedication ? 'Yes' : 'No'}
+                           </p>
+                         </div>
+                         {selectedUser.takesMedication && selectedUser.medicationDetails && (
+                           <div>
+                             <h4 className="text-xs font-medium text-gray-500">Medication Details</h4>
+                             <p className="mt-1 text-sm text-gray-900 break-words">
+                               {selectedUser.medicationDetails}
+                             </p>
+                           </div>
+                         )}
+                       </div>
+                     </div>
+                   </div>
+
                    {/* Account Information */}
                    <div className="bg-gray-50 rounded-lg p-4">
                      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
