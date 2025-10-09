@@ -44,7 +44,7 @@ export default function LoginPage({ user, loader }) {
       setIsLoading(true);
       setError('');
       
-      const response = await Api('post', 'auth/login', {
+      const response = await Api('post', 'auth/admin-login', {
         phone: formData.phone,
         isAdmin: true 
       }, router);

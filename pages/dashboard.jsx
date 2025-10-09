@@ -70,14 +70,16 @@ export default function Dashboard({ user, loader }) {
       value: String(todayRegistrations),
       icon: '👥',
       bgColor: 'bg-blue-50',
-      iconBg: 'bg-blue-100'
+      iconBg: 'bg-blue-100',
+      link: '/stats'
     },
     {
       title: 'Pending ID Verifications',
       value: String(pendingVerifications),
       icon: '🏷️',
       bgColor: 'bg-yellow-50',
-      iconBg: 'bg-yellow-100'
+      iconBg: 'bg-yellow-100',
+       link: '/users'
     },
     {
       title: 'Total Submitted Orders',
@@ -92,7 +94,8 @@ export default function Dashboard({ user, loader }) {
       value: String(categories.length),
       icon: '🏷️',
       bgColor: 'bg-orange-50',
-      iconBg: 'bg-orange-100'
+      iconBg: 'bg-orange-100',
+      link: '/categories'
     }
   ];
 

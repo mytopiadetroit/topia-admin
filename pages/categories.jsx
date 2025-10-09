@@ -48,6 +48,9 @@ const Categories = ({ user, loader }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -140,7 +143,9 @@ const Categories = ({ user, loader }) => {
   // Modal functions
 const openAddModal = () => {
   setModalMode('add');
-  setCurrentCategory({ id: '', category: '', metaTitle: '', metaDescription: '' });
+  setCurrentCategory({ id: '', category: '', metaTitle: '', metaDescription: '', image: '' });
+  setImagePreview('');
+  setSelectedImage('');
   setShowModal(true);
 };
 
@@ -150,14 +155,19 @@ const openAddModal = () => {
     id: category._id, 
     category: category.category,
     metaTitle: category.metaTitle || '',
-    metaDescription: category.metaDescription || ''
+    metaDescription: category.metaDescription || '',
+    image: category.image || ''
   });
+  setImagePreview(category.image || '');
+  setSelectedImage('');
   setShowModal(true);
 };
 
  const closeModal = () => {
   setShowModal(false);
-  setCurrentCategory({ id: '', category: '', metaTitle: '', metaDescription: '' });
+  setCurrentCategory({ id: '', category: '', metaTitle: '', metaDescription: '', image: '' });
+  setImagePreview('');
+  setSelectedImage('');
 };
 
   const handleInputChange = (e) => {
@@ -167,17 +177,56 @@ const openAddModal = () => {
     });
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setCurrentCategory(prev => ({
+          ...prev,
+          image: data.imageUrl
+        }));
+        setImagePreview(URL.createObjectURL(file));
+      } else {
+        throw new Error(data.message || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
+      const formData = new FormData();
+      formData.append('category', currentCategory.category);
+      formData.append('metaTitle', currentCategory.metaTitle);
+      formData.append('metaDescription', currentCategory.metaDescription);
+      
+      if (selectedImage) {
+        formData.append('image', selectedImage);
+      }
+
       if (modalMode === 'add') {
         // Create new category using Api function
-        const result = await createCategory({ 
-  category: currentCategory.category,
-  metaTitle: currentCategory.metaTitle,
-  metaDescription: currentCategory.metaDescription
-}, router);
+        const result = await createCategory(formData, router);
         if (result.success) {
           await Swal.fire({
             icon: 'success',
@@ -191,11 +240,7 @@ const openAddModal = () => {
         }
       } else {
         // Update existing category using Api function
-     const result = await updateCategory(currentCategory.id, { 
-  category: currentCategory.category,
-  metaTitle: currentCategory.metaTitle,
-  metaDescription: currentCategory.metaDescription
-}, router);
+        const result = await updateCategory(currentCategory.id, formData, router);
         if (result.success) {
           await Swal.fire({
             icon: 'success',
@@ -219,26 +264,114 @@ const openAddModal = () => {
   };
 
   const handleDelete = async (id) => {
-    const confirm = await Swal.fire({
-      title: 'Delete Category?',
-      text: 'This action cannot be undone.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, delete it',
-      cancelButtonText: 'Cancel'
-    });
-    if (!confirm.isConfirmed) return;
     try {
-      const result = await deleteCategory(id, router);
-      if (result.success) {
-        await Swal.fire({ icon: 'success', title: 'Deleted', timer: 1200, showConfirmButton: false });
-      } else {
-        Swal.fire({ icon: 'error', title: 'Error', text: result.message || 'Failed to delete category' });
+      // First confirmation
+      const firstConfirm = await Swal.fire({
+        title: 'Are you sure?',
+        text: 'You are about to delete this category and all its products!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete it!',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        focusCancel: true
+      });
+
+      if (!firstConfirm.isConfirmed) return;
+
+      // Second confirmation with stronger warning
+      const secondConfirm = await Swal.fire({
+        title: 'This action cannot be undone!',
+        html: `
+          <div class="text-left">
+            <p class="text-lg font-medium mb-4">Are you absolutely sure you want to delete this category?</p>
+            <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm text-red-700">
+                    <strong>WARNING:</strong> This will permanently delete the category and <strong>ALL</strong> products associated with it. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p class="text-red-600 font-semibold">Type <span class="bg-red-100 px-2 py-1 rounded">DELETE</span> to confirm</p>
+          </div>
+        `,
+        input: 'text',
+        inputPlaceholder: 'Type DELETE here',
+        inputAttributes: {
+          autocapitalize: 'off',
+          autocorrect: 'off'
+        },
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Yes, delete everything',
+        cancelButtonText: 'No, keep it safe',
+        reverseButtons: true,
+        focusCancel: true,
+        inputValidator: (value) => {
+          if (value !== 'DELETE') {
+            return 'You must type DELETE to confirm';
+          }
+        }
+      });
+
+      if (!secondConfirm.isConfirmed || secondConfirm.value !== 'DELETE') {
+        await Swal.fire({
+          icon: 'info',
+          title: 'Cancelled',
+          text: 'Your category and products are safe!',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        return;
       }
-      fetchCategories(pagination.currentPage, pagination.itemsPerPage, searchTerm);
+
+      // Show loading state
+      Swal.fire({
+        title: 'Deleting...',
+        text: 'Please wait while we delete the category and its products',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Call the delete API
+      const result = await deleteCategory(id, router);
+      
+      // Show success message
+      if (result.success) {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Deleted!',
+          text: result.message || 'Category and its products have been deleted.',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } else {
+        throw new Error(result.message || 'Failed to delete category');
+      }
+      
+      // Refresh the categories list
+      await fetchCategories(pagination.currentPage, pagination.itemsPerPage, searchTerm);
+      
     } catch (err) {
-      Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'An error occurred' });
       console.error('Error deleting category:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || err.message || 'An error occurred while deleting the category',
+        confirmButtonColor: '#3b82f6'
+      });
     }
   };
 
@@ -304,6 +437,7 @@ const openAddModal = () => {
               <table className="min-w-full">
                 <thead>
                   <tr className="text-left text-xs text-gray-500">
+                    <th className="px-4 py-3 font-medium">IMAGE</th>
                     <th className="px-4 py-3 font-medium">CATEGORY NAME</th>
                     <th className="px-4 py-3 font-medium text-right">ACTIONS</th>
                   </tr>
@@ -312,17 +446,30 @@ const openAddModal = () => {
                   {categories.length > 0 ? (
                     categories.map((category) => (
                       <tr key={category._id}>
+                        <td className="px-4 py-3">
+                          {category.image && (
+                            <div className="w-12 h-12 rounded-md overflow-hidden border">
+                              <img 
+                                src={category.image} 
+                                alt={category.category} 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-sm text-gray-700">{category.category}</td>
                         <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => openEditModal(category)}
                             className="text-blue-600 hover:text-blue-800 mr-3"
+                            title="Edit"
                           >
                             <Edit size={16} />
                           </button>
                           <button
                             onClick={() => handleDelete(category._id)}
                             className="text-red-600 hover:text-red-800"
+                            title="Delete"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -449,35 +596,80 @@ const openAddModal = () => {
                     required
                   />
                 </div>
-                <div className="mb-4">
-  <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-700 mb-1">
-    Meta Title (SEO)
-  </label>
-  <input
-    type="text"
-    id="metaTitle"
-    name="metaTitle"
-    value={currentCategory.metaTitle}
-    onChange={handleInputChange}
-    className="w-full text-gray-700 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-    placeholder="Enter meta title for SEO"
-  />
-</div>
 
-<div className="mb-4">
-  <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700 mb-1">
-    Meta Description (SEO)
-  </label>
-  <textarea
-    id="metaDescription"
-    name="metaDescription"
-    value={currentCategory.metaDescription}
-    onChange={handleInputChange}
-    rows={3}
-    className="w-full text-gray-700 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-    placeholder="Enter meta description for SEO"
-  />
-</div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category Image
+                  </label>
+                  <div className="mt-1 flex items-center">
+                    <label
+                      htmlFor="image-upload"
+                      className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      {uploading ? 'Uploading...' : 'Choose Image'}
+                      <input
+                        id="image-upload"
+                        name="image-upload"
+                        type="file"
+                        className="sr-only"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setSelectedImage(file);
+                            setImagePreview(URL.createObjectURL(file));
+                            setCurrentCategory(prev => ({
+                              ...prev,
+                              image: file
+                            }));
+                          }
+                        }}
+                        accept="image/*"
+                      />
+                    </label>
+                  </div>
+                  
+                  {(imagePreview || currentCategory.image) && (
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500 mb-1">Preview:</p>
+                      <div className="w-32 h-32 border rounded-md overflow-hidden">
+                        <img
+                          src={imagePreview || currentCategory.image}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="mb-4">
+                  <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-700 mb-1">
+                    Meta Title (SEO)
+                  </label>
+                  <input
+                    type="text"
+                    id="metaTitle"
+                    name="metaTitle"
+                    value={currentCategory.metaTitle}
+                    onChange={handleInputChange}
+                    className="w-full text-gray-700 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Enter meta title for SEO"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                    Meta Description (SEO)
+                  </label>
+                  <textarea
+                    id="metaDescription"
+                    name="metaDescription"
+                    value={currentCategory.metaDescription}
+                    onChange={handleInputChange}
+                    rows={3}
+                    className="w-full text-gray-700 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Enter meta description for SEO"
+                  />
+                </div>
                 
                 <div className="flex justify-end space-x-3">
                   <button

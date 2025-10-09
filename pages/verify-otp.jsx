@@ -43,7 +43,7 @@ export default function OtpVerificationPage({ user, loader }) {
       setIsLoading(true);
       setError('');
       
-      const response = await Api('post', 'auth/verify-otp', {
+      const response = await Api('post', 'auth/admin-verify-otp', {
         otp,
         phone: userPhone
       }, router);

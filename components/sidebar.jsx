@@ -119,7 +119,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
   const getCategoryClasses = (categoryId) => {
     const baseClasses = "w-full text-left px-4 py-2 text-sm rounded";
     
-    console.log("Category ID:", categoryId, "Active Category:", activeCategory, "Match:", activeCategory === categoryId);
+    // console.log("Category ID:", categoryId, "Active Category:", activeCategory, "Match:", activeCategory === categoryId);
     
     if (activeCategory === categoryId) {
       return `${baseClasses} bg-white text-blue-600 font-medium`;
@@ -140,11 +140,16 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
           <div className="flex items-center px-4 py-6">
             <div className="flex items-center">
               {!collapsed && (
-                <div className="flex flex-col items-center">
+                <a 
+                  href="https://main.d2hdxwwdjspab.amplifyapp.com/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center"
+                >
                   <div className="w-32 h-32 rounded-full ml-6 flex items-center justify-center mb-2">
                     <img src="/logo.png" alt="" />
                   </div>
-                </div>
+                </a>
               )}
             </div>
           </div>

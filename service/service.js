@@ -5,8 +5,8 @@ import axios from "axios";
   //   ? "http://localhost:5000/api/"
   //   : "https://api.mypsyguide.io/api/";
 
-    //  const ConstantsUrl = "http://localhost:5000/api/";
-      const ConstantsUrl = "https://api.mypsyguide.io/api/";
+       const ConstantsUrl = "http://localhost:5000/api/";
+      //  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -231,7 +231,7 @@ const fetchAllCategories = async (router) => {
 // Helper function to fetch products by category
 const fetchProductsByCategory = async (categoryId, router) => {
   try {
-    return await Api('get', `products/category/${categoryId}`, null, router);
+    return await Api('get', `products/category/paginated/${categoryId}`, null, router);
   } catch (error) {
     console.error('Error fetching products by category:', error);
     throw error;
