@@ -43,7 +43,7 @@ export default function OtpVerificationPage({ user, loader }) {
       setIsLoading(true);
       setError('');
       
-      const response = await Api('post', 'auth/admin-verify-otp', {
+      const response = await Api('post', 'auth/verify-otp', {
         otp,
         phone: userPhone
       }, router);
@@ -138,7 +138,7 @@ export default function OtpVerificationPage({ user, loader }) {
                   onChange={handleInputChange}
                   className="w-full px-4 text-center text-gray-700 py-4 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white/50 backdrop-blur-sm placeholder-gray-400 text-lg tracking-widest"
                   placeholder="Enter OTP"
-                  maxLength={4}
+                  maxLength={6}
                   required
                 />
               </div>
