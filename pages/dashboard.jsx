@@ -20,7 +20,7 @@ import Layout from '@/components/Layout';
 import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate } from '@/service/service';
 import { fetchAllCategories } from '@/service/service';
 import { fetchAllProducts } from '@/service/service';
-import { RegistrationsModal, LoginsModal } from './dashboard-modals';
+import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
 
 export default function Dashboard({ user, loader }) {
   const router = useRouter();
