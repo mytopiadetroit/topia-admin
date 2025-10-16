@@ -5,7 +5,7 @@ import axios from "axios";
   //   ? "http://localhost:5000/api/"
   //   : "https://api.mypsyguide.io/api/";
 
-        // const ConstantsUrl = "http://localhost:5000/api/";
+          // const ConstantsUrl = "http://localhost:5000/api/";
          const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
@@ -606,6 +606,43 @@ const fetchContentCategories = async (router) => {
   }
 };
 
+// Activity tracking helpers
+const fetchTodayRegistrations = async (router) => {
+  try {
+    return await Api('get', 'users/admin/today-registrations', null, router);
+  } catch (error) {
+    console.error('Error fetching today registrations:', error);
+    throw error;
+  }
+};
+
+const fetchTodayLogins = async (router) => {
+  try {
+    return await Api('get', 'users/admin/today-logins', null, router);
+  } catch (error) {
+    console.error('Error fetching today logins:', error);
+    throw error;
+  }
+};
+
+const fetchRegistrationsByDate = async (router, startDate, endDate) => {
+  try {
+    return await Api('get', 'users/admin/registrations-by-date', null, router, { startDate, endDate });
+  } catch (error) {
+    console.error('Error fetching registrations by date:', error);
+    throw error;
+  }
+};
+
+const fetchLoginsByDate = async (router, startDate, endDate) => {
+  try {
+    return await Api('get', 'users/admin/logins-by-date', null, router, { startDate, endDate });
+  } catch (error) {
+    console.error('Error fetching logins by date:', error);
+    throw error;
+  }
+};
+
 export { 
   Api, 
   timeSince, 
@@ -649,5 +686,9 @@ export {
   updateContentApi,
   deleteContentApi,
   fetchContentStats,
-  fetchContentCategories
+  fetchContentCategories,
+  fetchTodayRegistrations,
+  fetchTodayLogins,
+  fetchRegistrationsByDate,
+  fetchLoginsByDate
 };

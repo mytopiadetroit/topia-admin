@@ -1309,15 +1309,17 @@ export default function ProductsByCategory() {
 
         {/* Add New Images */}
         <div>
-          <label className="block text-sm text-gray-700 mb-1">Add New Images</label>
+          <label className="block text-sm text-gray-700 mb-1">Add New Images (Optional)</label>
           <input
             type="file"
             multiple
             accept="image/*"
             onChange={handleEditFileChange}
             className="block w-full text-sm text-gray-700"
-            required
           />
+          {editErrors.images && (
+            <p className="mt-1 text-sm text-red-600">{editErrors.images}</p>
+          )}
         </div>
         {/* Review Tags (multiple select) */}
         <div>

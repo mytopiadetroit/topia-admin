@@ -7,14 +7,20 @@ import {
   Grid3X3, 
   TrendingUp, 
   TrendingDown,
-  LogOut
+  LogOut,
+  X,
+  Eye,
+  Calendar,
+  UserPlus,
+  LogIn
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 // import { useRouter } from 'next/router';
-import { fetchAllUsers, fetchAllOrders } from '@/service/service';
+import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate } from '@/service/service';
 import { fetchAllCategories } from '@/service/service';
 import { fetchAllProducts } from '@/service/service';
+import { RegistrationsModal, LoginsModal } from './dashboard-modals';
 
 export default function Dashboard({ user, loader }) {
   const router = useRouter();
@@ -24,21 +30,30 @@ export default function Dashboard({ user, loader }) {
   const [orders, setOrders] = useState([]);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [todayLogins, setTodayLogins] = useState(0);
+  const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
+  const [showLoginsModal, setShowLoginsModal] = useState(false);
+  const [registrationsList, setRegistrationsList] = useState([]);
+  const [loginsList, setLoginsList] = useState([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const [uRes, oRes, cRes, pRes] = await Promise.all([
+        const [uRes, oRes, cRes, pRes, lRes] = await Promise.all([
           fetchAllUsers(router, { page: 1, limit: 100 }),
           fetchAllOrders(router, { page: 1, limit: 100 }),
           fetchAllCategories(router),
-          fetchAllProducts(router, { page: 1, limit: 100 })
+          fetchAllProducts(router, { page: 1, limit: 100 }),
+          fetchTodayLogins(router)
         ]);
         if (uRes?.success) setUsers(uRes.data || []);
         if (oRes?.success) setOrders(oRes.data || []);
         if (cRes?.success) setCategories(cRes.data || []);
         if (pRes?.success) setProducts(pRes.data || []);
+        if (lRes?.success) setTodayLogins(lRes.count || 0);
       } finally {
         setLoading(false);
       }
@@ -50,6 +65,73 @@ export default function Dashboard({ user, loader }) {
     localStorage.removeItem('userDetail');
     localStorage.removeItem('token');
     router.push('/');
+  };
+
+  const handleViewRegistrations = async () => {
+    try {
+      setModalLoading(true);
+      setShowRegistrationsModal(true);
+      const res = await fetchTodayRegistrations(router);
+      if (res?.success) {
+        setRegistrationsList(res.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading registrations:', error);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleViewLogins = async () => {
+    try {
+      setModalLoading(true);
+      setShowLoginsModal(true);
+      const res = await fetchTodayLogins(router);
+      if (res?.success) {
+        setLoginsList(res.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading logins:', error);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleDateRangeSearch = async (type) => {
+    if (!dateRange.start || !dateRange.end) {
+      alert('Please select both start and end dates');
+      return;
+    }
+    
+    try {
+      setModalLoading(true);
+      if (type === 'registrations') {
+        const res = await fetchRegistrationsByDate(router, dateRange.start, dateRange.end);
+        if (res?.success) {
+          setRegistrationsList(res.data || []);
+        }
+      } else {
+        const res = await fetchLoginsByDate(router, dateRange.start, dateRange.end);
+        if (res?.success) {
+          setLoginsList(res.data || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading data by date:', error);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const todayRegistrations = useMemo(() => {
@@ -71,7 +153,17 @@ export default function Dashboard({ user, loader }) {
       icon: '👥',
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100',
-      link: '/stats'
+      hasDetailView: true,
+      onViewDetails: handleViewRegistrations
+    },
+    {
+      title: 'Total Logins Today',
+      value: String(todayLogins),
+      icon: '🔐',
+      bgColor: 'bg-purple-50',
+      iconBg: 'bg-purple-100',
+      hasDetailView: true,
+      onViewDetails: handleViewLogins
     },
     {
       title: 'Pending ID Verifications',
@@ -88,14 +180,6 @@ export default function Dashboard({ user, loader }) {
       bgColor: 'bg-green-50',
       iconBg: 'bg-green-100',
       link: '/admin/orders'
-    },
-    {
-      title: 'Categories',
-      value: String(categories.length),
-      icon: '🏷️',
-      bgColor: 'bg-orange-50',
-      iconBg: 'bg-orange-100',
-      link: '/categories'
     }
   ];
 
@@ -181,6 +265,18 @@ export default function Dashboard({ user, loader }) {
                   <div className="flex-1">
                     <p className="text-gray-600 text-sm font-medium mb-2">{stat.title}</p>
                     <p className="text-3xl font-bold text-gray-900 mb-3">{stat.value}</p>
+                    {stat.hasDetailView && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          stat.onViewDetails();
+                        }}
+                        className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium mt-2"
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Details
+                      </button>
+                    )}
                     {stat.trend && (
                       <div className="flex items-center space-x-1">
                         {stat.trend.isUp ? (
@@ -265,6 +361,31 @@ export default function Dashboard({ user, loader }) {
             </div>
           </div>
         </div>
+
+        {/* Modals */}
+        <RegistrationsModal
+          show={showRegistrationsModal}
+          onClose={() => setShowRegistrationsModal(false)}
+          loading={modalLoading}
+          data={registrationsList}
+          dateRange={dateRange}
+          onDateChange={setDateRange}
+          onSearch={() => handleDateRangeSearch('registrations')}
+          onTodayClick={handleViewRegistrations}
+          formatDateTime={formatDateTime}
+        />
+
+        <LoginsModal
+          show={showLoginsModal}
+          onClose={() => setShowLoginsModal(false)}
+          loading={modalLoading}
+          data={loginsList}
+          dateRange={dateRange}
+          onDateChange={setDateRange}
+          onSearch={() => handleDateRangeSearch('logins')}
+          onTodayClick={handleViewLogins}
+          formatDateTime={formatDateTime}
+        />
       </div>
     </Layout>
   );
