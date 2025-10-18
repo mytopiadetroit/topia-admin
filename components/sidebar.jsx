@@ -15,7 +15,8 @@ import {
   Star,
   BookOpen,
   Gift,
-  Settings
+  Settings,
+  Image
 } from "lucide-react";
 import { fetchAllCategories } from "../service/service";
 
@@ -97,6 +98,9 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       setActiveCategory("");
     } else if (currentPath.includes("/rewards")) {
       setActiveModule("rewards");
+      setActiveCategory("");
+    } else if (currentPath.includes("/gallery")) {
+      setActiveModule("gallery");
       setActiveCategory("");
     } else if (currentPath.includes("/settings")) {
       setActiveModule("settings");
@@ -292,6 +296,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 >
                   <Gift className={`h-5 w-5 ${activeModule === "rewards" ? "text-[#80A6F7]" : ""}`} />
                   {!collapsed && <span className="ml-2">Rewards</span>}
+                </button>
+              </Link>
+
+              <Link href="/gallery">
+                <button
+                  className={getModuleClasses("gallery")}
+                >
+                  <Image className={`h-5 w-5 ${activeModule === "gallery" ? "text-[#80A6F7]" : ""}`} />
+                  {!collapsed && <span className="ml-2">Gallery</span>}
                 </button>
               </Link>
 

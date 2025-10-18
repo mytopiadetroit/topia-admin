@@ -240,7 +240,10 @@ export default function ProductsByCategory() {
     reviewTagIds: [],
     imageAltName: '',
     metaTitle: '',
-    metaDescription: ''
+    metaDescription: '',
+    hasVariants: false,
+    variants: [],
+    flavors: []
   });
   const [errors, setErrors] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
@@ -258,7 +261,10 @@ export default function ProductsByCategory() {
     imageAltName: '',
     metaTitle: '',
     metaDescription: '',
-    reviewTagIds: []
+    reviewTagIds: [],
+    hasVariants: false,
+    variants: [],
+    flavors: []
   });
   const [editErrors, setEditErrors] = useState({});
   const [editKeepImages, setEditKeepImages] = useState([]);
@@ -356,7 +362,10 @@ export default function ProductsByCategory() {
       imageAltName: product.imageAltName || '',
       metaTitle: product.metaTitle || '',
       metaDescription: product.metaDescription || '',
-      reviewTagIds: (product.reviewTags || []).map(t => t._id)
+      reviewTagIds: (product.reviewTags || []).map(t => t._id),
+      hasVariants: product.hasVariants || false,
+      variants: product.variants || [],
+      flavors: product.flavors || []
     });
     setEditKeepImages([...(product.images || [])]);
     setShowEditModal(true);
@@ -483,6 +492,9 @@ export default function ProductsByCategory() {
       fd.append('metaTitle', editForm.metaTitle || '');
       fd.append('metaDescription', editForm.metaDescription || '');
       fd.append('reviewTags', JSON.stringify(editForm.reviewTagIds || []));
+      fd.append('hasVariants', String(editForm.hasVariants));
+      fd.append('variants', JSON.stringify(editForm.variants || []));
+      fd.append('flavors', JSON.stringify(editForm.flavors || []));
 
       const res = await updateProductApi(editForm.id, fd, router);
       if (res?.success) {
@@ -541,7 +553,10 @@ export default function ProductsByCategory() {
       imageAltName: '',
       metaTitle: '',
       metaDescription: '',
-      reviewTagIds: []
+      reviewTagIds: [],
+      hasVariants: false,
+      variants: [],
+      flavors: []
     });
     setShowAddModal(true);
   };
@@ -561,6 +576,110 @@ export default function ProductsByCategory() {
         [name]: undefined
       }));
     }
+  };
+
+  // Variant management for Add form
+  const addVariant = () => {
+    setForm(prev => ({
+      ...prev,
+      variants: [...prev.variants, { size: { value: '', unit: 'grams' }, price: '', stock: 0, sku: '' }]
+    }));
+  };
+
+  const removeVariant = (index) => {
+    setForm(prev => ({
+      ...prev,
+      variants: prev.variants.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateVariant = (index, field, value) => {
+    setForm(prev => ({
+      ...prev,
+      variants: prev.variants.map((v, i) => {
+        if (i !== index) return v;
+        if (field === 'sizeValue') {
+          return { ...v, size: { ...v.size, value } };
+        } else if (field === 'sizeUnit') {
+          return { ...v, size: { ...v.size, unit: value } };
+        }
+        return { ...v, [field]: value };
+      })
+    }));
+  };
+
+  // Flavor management for Add form
+  const addFlavor = () => {
+    setForm(prev => ({
+      ...prev,
+      flavors: [...prev.flavors, { name: '', price: '' }]
+    }));
+  };
+
+  const removeFlavor = (index) => {
+    setForm(prev => ({
+      ...prev,
+      flavors: prev.flavors.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateFlavor = (index, field, value) => {
+    setForm(prev => ({
+      ...prev,
+      flavors: prev.flavors.map((f, i) => i === index ? { ...f, [field]: value } : f)
+    }));
+  };
+
+  // Variant management for Edit form
+  const addEditVariant = () => {
+    setEditForm(prev => ({
+      ...prev,
+      variants: [...prev.variants, { size: { value: '', unit: 'grams' }, price: '', stock: 0, sku: '' }]
+    }));
+  };
+
+  const removeEditVariant = (index) => {
+    setEditForm(prev => ({
+      ...prev,
+      variants: prev.variants.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateEditVariant = (index, field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      variants: prev.variants.map((v, i) => {
+        if (i !== index) return v;
+        if (field === 'sizeValue') {
+          return { ...v, size: { ...v.size, value } };
+        } else if (field === 'sizeUnit') {
+          return { ...v, size: { ...v.size, unit: value } };
+        }
+        return { ...v, [field]: value };
+      })
+    }));
+  };
+
+  // Flavor management for Edit form
+  const addEditFlavor = () => {
+    setEditForm(prev => ({
+      ...prev,
+      flavors: [...prev.flavors, { name: '', price: '' }]
+    }));
+  };
+
+  const removeEditFlavor = (index) => {
+    setEditForm(prev => ({
+      ...prev,
+      flavors: prev.flavors.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateEditFlavor = (index, field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      flavors: prev.flavors.map((f, i) => i === index ? { ...f, [field]: value } : f)
+    }));
   };
 
   const submitAddProduct = async (e) => {
@@ -673,6 +792,9 @@ export default function ProductsByCategory() {
       fd.append('metaDescription', form.metaDescription || '');
       fd.append('intensity', form.intensity || '5');
       fd.append('reviewTags', JSON.stringify(form.reviewTagIds || []));
+      fd.append('hasVariants', String(form.hasVariants));
+      fd.append('variants', JSON.stringify(form.variants || []));
+      fd.append('flavors', JSON.stringify(form.flavors || []));
 
       const res = await createProduct(fd, router);
       if (res?.success) {
@@ -690,6 +812,7 @@ export default function ProductsByCategory() {
           name: '',
           price: '',
           stock: '0',
+          intensity: '5',
           descriptionMain: '',
           descriptionDetails: '',
           primaryUse: 'therapeutic',
@@ -698,8 +821,12 @@ export default function ProductsByCategory() {
           imageAltName: '',
           metaTitle: '',
           metaDescription: '',
-          reviewTagIds: []
+          reviewTagIds: [],
+          hasVariants: false,
+          variants: [],
+          flavors: []
         });
+        setErrors({});
       } else {
         throw new Error(res?.message || 'Failed to create product');
       }
@@ -847,12 +974,27 @@ export default function ProductsByCategory() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-semibold text-gray-900">{formatPrice(product.price)}</div>
+                            {product.hasVariants && product.variants && product.variants.length > 0 ? (
+                              <div>
+                                <div className="text-sm font-semibold text-gray-900">
+                                  {formatPrice(Math.min(...product.variants.map(v => v.price)))} - {formatPrice(Math.max(...product.variants.map(v => v.price)))}
+                                </div>
+                                <div className="text-xs text-gray-500">{product.variants.length} variants</div>
+                              </div>
+                            ) : (
+                              <div className="text-sm font-semibold text-gray-900">{formatPrice(product.price)}</div>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.hasStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                              {product.hasStock ? `In Stock (${product.stock ?? 0})` : 'Out of Stock'}
-                            </span>
+                            {product.hasVariants && product.variants && product.variants.length > 0 ? (
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                Total: {product.variants.reduce((sum, v) => sum + (v.stock || 0), 0)} units
+                              </span>
+                            ) : (
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.hasStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {product.hasStock ? `In Stock (${product.stock ?? 0})` : 'Out of Stock'}
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(product.createdAt)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -921,7 +1063,9 @@ export default function ProductsByCategory() {
                     <div className="space-y-4">
                       <div>
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">{selectedProduct.name}</h3>
-                        <p className="text-2xl font-bold text-blue-600">{formatPrice(selectedProduct.price)}</p>
+                        {!selectedProduct.hasVariants && (
+                          <p className="text-2xl font-bold text-blue-600">{formatPrice(selectedProduct.price)}</p>
+                        )}
                       </div>
                       <div className="space-y-3">
                         <div>
@@ -936,12 +1080,57 @@ export default function ProductsByCategory() {
                           <h4 className="text-sm font-medium text-gray-700">Primary Use</h4>
                           <p className="text-sm text-gray-900 mt-1 capitalize">{selectedProduct.primaryUse}</p>
                         </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700">Stock Status</h4>
-                          <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${selectedProduct.hasStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {selectedProduct.hasStock ? `In Stock (${selectedProduct.stock ?? 0})` : 'Out of Stock'}
-                          </span>
-                        </div>
+                        
+                        {/* Show variants if available */}
+                        {selectedProduct.hasVariants && selectedProduct.variants && selectedProduct.variants.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Size Variants</h4>
+                            <div className="space-y-2">
+                              {selectedProduct.variants.map((variant, idx) => (
+                                <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-900">
+                                        {variant.size?.value} {variant.size?.unit}
+                                      </p>
+                                      <p className="text-xs text-gray-600 mt-0.5">
+                                        {variant.sku && `SKU: ${variant.sku} • `}Stock: {variant.stock || 0}
+                                      </p>
+                                    </div>
+                                    <p className="text-lg font-bold text-blue-600">{formatPrice(variant.price)}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Show flavors if available */}
+                        {selectedProduct.flavors && selectedProduct.flavors.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Available Flavors</h4>
+                            <div className="space-y-2">
+                              {selectedProduct.flavors.map((flavor, idx) => (
+                                <div key={idx} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-gray-900">{flavor.name}</span>
+                                    <span className="text-lg font-bold text-green-600">{formatPrice(flavor.price)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Show stock status only for non-variant products */}
+                        {!selectedProduct.hasVariants && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700">Stock Status</h4>
+                            <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full mt-1 ${selectedProduct.hasStock ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                              {selectedProduct.hasStock ? `In Stock (${selectedProduct.stock ?? 0})` : 'Out of Stock'}
+                            </span>
+                          </div>
+                        )}
                         {selectedProduct.tags && selectedProduct.tags.length > 0 && (
                           <div>
                             <h4 className="text-sm font-medium text-gray-700">Tags</h4>
@@ -984,15 +1173,203 @@ export default function ProductsByCategory() {
       </div>
       <form onSubmit={submitAddProduct} className="p-6 space-y-4">
         
-        {/* Name + Price */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Name</label>
-            <input name="name"  value={form.name} onChange={handleChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        {/* Name */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Product Name</label>
+          <input name="name" value={form.name} onChange={handleChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        </div>
+
+        {/* Use Variants Toggle */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-1">Enable Size Variants</label>
+              <p className="text-xs text-gray-600">Enable this to add different sizes (grams, kg, etc.) with individual pricing</p>
+            </div>
+            <input 
+              type="checkbox" 
+              checked={form.hasVariants} 
+              onChange={(e) => setForm(prev => ({ ...prev, hasVariants: e.target.checked }))} 
+              className="h-5 w-5 text-blue-600 border-gray-300 rounded"
+            />
           </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Price</label>
-            <input type="number" name="price" value={form.price} onChange={handleChange} required min="0" step="0.01" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+        </div>
+
+        {/* If variants are disabled, show regular price/stock */}
+        {!form.hasVariants && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Price</label>
+              <input type="number" name="price" value={form.price} onChange={handleChange} required min="0" step="0.01" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
+              <input type="number" required min="0" name="stock" value={form.stock} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+            </div>
+          </div>
+        )}
+
+        {/* Variants Section */}
+        {form.hasVariants && (
+          <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900">Product Variants</h3>
+              <button 
+                type="button" 
+                onClick={addVariant} 
+                className="flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Variant
+              </button>
+            </div>
+            
+            {form.variants.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">No variants added yet. Click "Add Variant" to create one.</p>
+            )}
+
+            <div className="space-y-3">
+              {form.variants.map((variant, index) => (
+                <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-xs font-semibold text-gray-600">Variant #{index + 1}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => removeVariant(index)} 
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Size (Value)</label>
+                      <input 
+                        type="number" 
+                        value={variant.size?.value || ''} 
+                        onChange={(e) => updateVariant(index, 'sizeValue', e.target.value)}
+                        placeholder="e.g., 250"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Unit</label>
+                      <select 
+                        value={variant.size?.unit || 'grams'} 
+                        onChange={(e) => updateVariant(index, 'sizeUnit', e.target.value)}
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="grams">Grams</option>
+                        <option value="kg">Kg</option>
+                        <option value="ml">ML</option>
+                        <option value="liters">Liters</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Price</label>
+                      <input 
+                        type="number" 
+                        value={variant.price || ''} 
+                        onChange={(e) => updateVariant(index, 'price', e.target.value)}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Stock</label>
+                      <input 
+                        type="number" 
+                        value={variant.stock || 0} 
+                        onChange={(e) => updateVariant(index, 'stock', e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">SKU (Optional)</label>
+                      <input 
+                        type="text" 
+                        value={variant.sku || ''} 
+                        onChange={(e) => updateVariant(index, 'sku', e.target.value)}
+                        placeholder="e.g., CHOC-250G"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Flavors Section (Optional) */}
+        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Available Flavors (Optional)</h3>
+              <p className="text-xs text-gray-600 mt-1">Add flavors available for this product</p>
+            </div>
+            <button 
+              type="button" 
+              onClick={addFlavor} 
+              className="flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Flavor
+            </button>
+          </div>
+          
+          {form.flavors.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-4">No flavors added. Flavors are optional.</p>
+          )}
+
+          <div className="space-y-2">
+            {form.flavors.map((flavor, index) => (
+              <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-semibold text-gray-600">Flavor #{index + 1}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeFlavor(index)} 
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-700 mb-1">Flavor Name</label>
+                    <input 
+                      type="text" 
+                      value={flavor.name || ''} 
+                      onChange={(e) => updateFlavor(index, 'name', e.target.value)}
+                      placeholder="e.g., Chocolate, Vanilla"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-700 mb-1">Price</label>
+                    <input 
+                      type="number" 
+                      value={flavor.price || ''} 
+                      onChange={(e) => updateFlavor(index, 'price', e.target.value)}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1006,18 +1383,14 @@ export default function ProductsByCategory() {
           <textarea name="descriptionDetails" value={form.descriptionDetails} onChange={handleChange} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
         </div>
 
-        {/* Primary Use + Stock + Intensity */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Primary Use + Intensity + In Stock */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
             <select name="primaryUse" value={form.primaryUse} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700">
               <option value="therapeutic">Therapeutic</option>
               <option value="functional">Functional</option>
             </select>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
-            <input type="number" required min="0" name="stock" value={form.stock} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" placeholder="e.g., 10" />
           </div>
           <div>
             <label className="block text-sm text-gray-700 mb-1">Intensity (1-10)</label>
@@ -1172,33 +1545,233 @@ export default function ProductsByCategory() {
 
       {/* Form */}
       <form onSubmit={submitEditProduct} className="p-6 space-y-4">
-        {/* Name & Price */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Name</label>
-            <input
-              name="name"
-              value={editForm.name}
-              onChange={handleEditChange}
-              required
-              className={`w-full border ${editErrors.name ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700`}
+        {/* Name */}
+        <div>
+          <label className="block text-sm text-gray-700 mb-1">Product Name</label>
+          <input
+            name="name"
+            value={editForm.name}
+            onChange={handleEditChange}
+            required
+            className={`w-full border ${editErrors.name ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700`}
+          />
+          {editErrors.name && (
+            <p className="mt-1 text-sm text-red-600">{editErrors.name}</p>
+          )}
+        </div>
+
+        {/* Use Variants Toggle */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 mb-1">Enable Size Variants</label>
+              <p className="text-xs text-gray-600">Enable this to add different sizes (grams, kg, etc.) with individual pricing</p>
+            </div>
+            <input 
+              type="checkbox" 
+              checked={editForm.hasVariants} 
+              onChange={(e) => setEditForm(prev => ({ ...prev, hasVariants: e.target.checked }))} 
+              className="h-5 w-5 text-blue-600 border-gray-300 rounded"
             />
-            {editErrors.name && (
-              <p className="mt-1 text-sm text-red-600">{editErrors.name}</p>
-            )}
           </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Price</label>
-            <input
-              type="number"
-              name="price"
-              value={editForm.price}
-              onChange={handleEditChange}
-              required
-              min="0"
-              step="0.01"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
-            />
+        </div>
+
+        {/* If variants are disabled, show regular price/stock */}
+        {!editForm.hasVariants && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Price</label>
+              <input
+                type="number"
+                name="price"
+                value={editForm.price}
+                onChange={handleEditChange}
+                required
+                min="0"
+                step="0.01"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
+              <input
+                type="number"
+                min="0"
+                name="stock"
+                required
+                value={editForm.stock}
+                onChange={handleEditChange}
+                className={`w-full border ${editErrors.stock ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700`}
+                placeholder="e.g., 10"
+              />
+              {editErrors.stock && (
+                <p className="mt-1 text-sm text-red-600">{editErrors.stock}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Variants Section */}
+        {editForm.hasVariants && (
+          <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900">Product Variants</h3>
+              <button 
+                type="button" 
+                onClick={addEditVariant} 
+                className="flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Variant
+              </button>
+            </div>
+            
+            {editForm.variants.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">No variants added yet. Click "Add Variant" to create one.</p>
+            )}
+
+            <div className="space-y-3">
+              {editForm.variants.map((variant, index) => (
+                <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-xs font-semibold text-gray-600">Variant #{index + 1}</span>
+                    <button 
+                      type="button" 
+                      onClick={() => removeEditVariant(index)} 
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Size (Value)</label>
+                      <input 
+                        type="number" 
+                        value={variant.size?.value || ''} 
+                        onChange={(e) => updateEditVariant(index, 'sizeValue', e.target.value)}
+                        placeholder="e.g., 250"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Unit</label>
+                      <select 
+                        value={variant.size?.unit || 'grams'} 
+                        onChange={(e) => updateEditVariant(index, 'sizeUnit', e.target.value)}
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="grams">Grams</option>
+                        <option value="kg">Kg</option>
+                        <option value="ml">ML</option>
+                        <option value="liters">Liters</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Price</label>
+                      <input 
+                        type="number" 
+                        value={variant.price || ''} 
+                        onChange={(e) => updateEditVariant(index, 'price', e.target.value)}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">Stock</label>
+                      <input 
+                        type="number" 
+                        value={variant.stock || 0} 
+                        onChange={(e) => updateEditVariant(index, 'stock', e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-700 mb-1">SKU (Optional)</label>
+                      <input 
+                        type="text" 
+                        value={variant.sku || ''} 
+                        onChange={(e) => updateEditVariant(index, 'sku', e.target.value)}
+                        placeholder="e.g., CHOC-250G"
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Flavors Section (Optional) */}
+        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Available Flavors (Optional)</h3>
+              <p className="text-xs text-gray-600 mt-1">Add flavors available for this product</p>
+            </div>
+            <button 
+              type="button" 
+              onClick={addEditFlavor} 
+              className="flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Flavor
+            </button>
+          </div>
+          
+          {editForm.flavors.length === 0 && (
+            <p className="text-sm text-gray-500 text-center py-4">No flavors added. Flavors are optional.</p>
+          )}
+
+          <div className="space-y-2">
+            {editForm.flavors.map((flavor, index) => (
+              <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xs font-semibold text-gray-600">Flavor #{index + 1}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeEditFlavor(index)} 
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-700 mb-1">Flavor Name</label>
+                    <input 
+                      type="text" 
+                      value={flavor.name || ''} 
+                      onChange={(e) => updateEditFlavor(index, 'name', e.target.value)}
+                      placeholder="e.g., Chocolate, Vanilla"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-700 mb-1">Price</label>
+                    <input 
+                      type="number" 
+                      value={flavor.price || ''} 
+                      onChange={(e) => updateEditFlavor(index, 'price', e.target.value)}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1231,8 +1804,8 @@ export default function ProductsByCategory() {
           )}
         </div>
 
-        {/* Primary Use + Stock + In Stock */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Primary Use + In Stock */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
             <select
@@ -1246,22 +1819,6 @@ export default function ProductsByCategory() {
             </select>
             {editErrors.primaryUse && (
               <p className="mt-1 text-sm text-red-600">{editErrors.primaryUse}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Stock Quantity</label>
-            <input
-              type="number"
-              min="0"
-              name="stock"
-              required
-              value={editForm.stock}
-              onChange={handleEditChange}
-              className={`w-full border ${editErrors.stock ? 'border-red-500' : 'border-gray-300'} rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700`}
-              placeholder="e.g., 10"
-            />
-            {editErrors.stock && (
-              <p className="mt-1 text-sm text-red-600">{editErrors.stock}</p>
             )}
           </div>
           <div className="flex items-center space-x-2 mt-6">

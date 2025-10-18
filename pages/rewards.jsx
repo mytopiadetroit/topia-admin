@@ -152,9 +152,17 @@ const RewardsManagement = () => {
       <div className="flex-1 lg:ml-64 w-full">
         <div className="p-6 w-full">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Reward Management</h1>
-            <p className="text-gray-600">Manage and verify reward claims</p>
+          <div className="mb-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Reward Management</h1>
+              <p className="text-gray-600">Manage and verify reward claims</p>
+            </div>
+            <button
+              onClick={() => router.push('/reward-tasks')}
+              className="px-4 py-2 bg-[#80A6F7] text-white rounded-md hover:bg-[#6B8FE6] transition-colors"
+            >
+              Manage Tasks
+            </button>
           </div>
 
           {/* Stats Cards */}

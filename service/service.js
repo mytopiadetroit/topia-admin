@@ -6,7 +6,7 @@ import axios from "axios";
   //   : "https://api.mypsyguide.io/api/";
 
           // const ConstantsUrl = "http://localhost:5000/api/";
-         const ConstantsUrl = "https://api.mypsyguide.io/api/";
+          const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -643,6 +643,98 @@ const fetchLoginsByDate = async (router, startDate, endDate) => {
   }
 };
 
+// Reward Task Management helpers (admin)
+const fetchAllRewardTasks = async (router) => {
+  try {
+    return await Api('get', 'rewards/admin/tasks', null, router);
+  } catch (error) {
+    console.error('Error fetching reward tasks:', error);
+    throw error;
+  }
+};
+
+const createRewardTaskApi = async (data, router) => {
+  try {
+    return await Api('post', 'rewards/admin/tasks', data, router);
+  } catch (error) {
+    console.error('Error creating reward task:', error);
+    throw error;
+  }
+};
+
+const updateRewardTaskApi = async (id, data, router) => {
+  try {
+    return await Api('put', `rewards/admin/tasks/${id}`, data, router);
+  } catch (error) {
+    console.error('Error updating reward task:', error);
+    throw error;
+  }
+};
+
+const deleteRewardTaskApi = async (id, router) => {
+  try {
+    return await Api('delete', `rewards/admin/tasks/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting reward task:', error);
+    throw error;
+  }
+};
+
+const toggleRewardTaskVisibility = async (id, router) => {
+  try {
+    return await Api('patch', `rewards/admin/tasks/${id}/toggle-visibility`, null, router);
+  } catch (error) {
+    console.error('Error toggling task visibility:', error);
+    throw error;
+  }
+};
+
+// Gallery Management helpers (admin)
+const fetchAllGalleryImages = async (router) => {
+  try {
+    return await Api('get', 'gallery/admin/all', null, router);
+  } catch (error) {
+    console.error('Error fetching gallery images:', error);
+    throw error;
+  }
+};
+
+const uploadGalleryImage = async (formData, router) => {
+  try {
+    return await ApiFormData('post', 'gallery/admin/upload', formData, router);
+  } catch (error) {
+    console.error('Error uploading gallery image:', error);
+    throw error;
+  }
+};
+
+const updateGalleryImage = async (id, formData, router) => {
+  try {
+    return await ApiFormData('put', `gallery/admin/${id}`, formData, router);
+  } catch (error) {
+    console.error('Error updating gallery image:', error);
+    throw error;
+  }
+};
+
+const deleteGalleryImage = async (id, router) => {
+  try {
+    return await Api('delete', `gallery/admin/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting gallery image:', error);
+    throw error;
+  }
+};
+
+const toggleGalleryImageStatus = async (id, router) => {
+  try {
+    return await Api('patch', `gallery/admin/${id}/toggle`, null, router);
+  } catch (error) {
+    console.error('Error toggling gallery image status:', error);
+    throw error;
+  }
+};
+
 export { 
   Api, 
   timeSince, 
@@ -690,5 +782,15 @@ export {
   fetchTodayRegistrations,
   fetchTodayLogins,
   fetchRegistrationsByDate,
-  fetchLoginsByDate
+  fetchLoginsByDate,
+  fetchAllRewardTasks,
+  createRewardTaskApi,
+  updateRewardTaskApi,
+  deleteRewardTaskApi,
+  toggleRewardTaskVisibility,
+  fetchAllGalleryImages,
+  uploadGalleryImage,
+  updateGalleryImage,
+  deleteGalleryImage,
+  toggleGalleryImageStatus
 };
