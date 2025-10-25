@@ -6,7 +6,7 @@ import axios from "axios";
   //   : "https://api.mypsyguide.io/api/";
 
           // const ConstantsUrl = "http://localhost:5000/api/";
-          const ConstantsUrl = "https://api.mypsyguide.io/api/";
+           const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
