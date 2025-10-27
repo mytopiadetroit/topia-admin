@@ -23,6 +23,7 @@ export default function AdminOrders() {
     try {
       setLoading(true);
       const response = await fetchAllOrders(router, { page, limit: 10, status: selectedStatus });
+      console.log('Fetched orders response:', response);
       if (response.success) {
         setOrders(response.data);
         if (response.meta) setTotalPages(response.meta.totalPages || 1);
@@ -226,14 +227,14 @@ export default function AdminOrders() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {order.user?.name || 'N/A'}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {order.user?.email || 'N/A'}
-                      </div>
-                    </td>
+                   <td className="px-6 py-4 whitespace-nowrap">
+  <div className="text-sm text-gray-900">
+    {order.user?.fullName || 'N/A'}
+  </div>
+  <div className="text-sm text-gray-500">
+    {order.user?.email || 'N/A'}
+  </div>
+</td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
                         {order.items.length} item(s)

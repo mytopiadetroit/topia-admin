@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../components/sidebar';
 import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin } from '../service/service';
@@ -23,41 +23,133 @@ import {
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
+  // State for data and UI
+  
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchTimeout, setSearchTimeout] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // UI State
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userModalLoading, setUserModalLoading] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  
   const router = useRouter();
 
+  // Load users when page or filters change
   useEffect(() => {
-    loadUsers();
-  }, [page]);
-
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchAllUsers(router, { page, limit: 10 });
-      if (response.success) {
-        setUsers(response.data || []);
-        if (response.meta) {
-          setTotalPages(response.meta.totalPages || 1);
+    const controller = new AbortController();
+    
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        const params = { 
+          page, 
+          limit: 10,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+          search: searchTerm
+        };
+      
+        const response = await fetchAllUsers(router, params);
+        if (response.success) {
+          setUsers(response.data || []);
+          if (response.meta) {
+            setTotalPages(response.meta.totalPages || 1);
+          }
+        } else {
+          toast.error('Failed to load users');
         }
-      } else {
-        toast.error('Failed to load users');
+      } catch (error) {
+        console.error('Error loading users:', error);
+        toast.error('Error loading users');
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading users:', error);
-      toast.error('Error loading users');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    
+    loadUsers();
+    
+    return () => {
+      controller.abort();
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [page, filterStatus, searchTerm]);
+
+const handleSearch = useCallback((e) => {
+  const value = e.target.value;
+  
+  // Clear previous timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  
+  // Set a new timeout
+  const newTimeout = setTimeout(() => {
+    setSearchTerm(value); // Move searchTerm update inside timeout
+    setPage(1);
+  }, 500);
+  
+  setSearchTimeout(newTimeout);
+}, [searchTimeout]);
+
+  // Memoize filtered users to prevent unnecessary re-renders
+  const filteredUsers = useMemo(() => 
+    users.filter(user => filterRole === 'all' || user.role === filterRole),
+    [users, filterRole]
+  );
+
+  // Handle delete user
+  useEffect(() => {
+    const controller = new AbortController();
+    
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const params = { 
+          page, 
+          limit: 10,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+          search: searchTerm
+        };
+        
+        const response = await fetchAllUsers(router, params);
+        
+        if (response.success) {
+          setUsers(response.data || []);
+          if (response.meta) {
+            setTotalPages(response.meta.totalPages || 1);
+          }
+        }
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          console.error('Error loading users:', error);
+          toast.error('Error loading users');
+        }
+      } finally {
+        setLoading(false);
+        if (isInitialLoad) setIsInitialLoad(false);
+      }
+    };
+    
+    fetchData();
+    
+    return () => {
+      controller.abort();
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [page, filterStatus, searchTerm, isInitialLoad]);
 
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -107,15 +199,13 @@ export default function UsersPage() {
     setSelectedUser(null);
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.phone?.includes(searchTerm);
-    
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    
-    return matchesSearch && matchesRole;
-  });
+  // Status filter options
+  const statusOptions = [
+    { value: 'all', label: 'All Status' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'verified', label: 'Verified' },
+    { value: 'suspend', label: 'Suspended' }
+  ];
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -178,7 +268,20 @@ const handleChangeStatus = async (userId, status) => {
           timer: 2000,
           timerProgressBar: true
         });
-        loadUsers();
+        // Refresh the users list after successful status update
+        const response = await fetchAllUsers(router, { 
+          page, 
+          limit: 10,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+          search: searchTerm
+        });
+        
+        if (response.success) {
+          setUsers(response.data || []);
+          if (response.meta) {
+            setTotalPages(response.meta.totalPages || 1);
+          }
+        }
       } else {
         // Show error message with SweetAlert2
         await Swal.fire({
@@ -271,31 +374,48 @@ const handleChangeStatus = async (userId, status) => {
         {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              {/* Role Filter */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+             <input
+  type="text"
+  placeholder="Search users..."
+  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+  value={searchInput}
+  onChange={(e) => {
+    setSearchInput(e.target.value); // Update local state immediately
+    handleSearch(e); // Debounced search
+  }}
+  onKeyPress={(e) => e.key === 'Enter' && loadUsers()}
+/>
+            </div>
+            
+            <div className="w-full sm:w-48">
               <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={filterRole}
                 onChange={(e) => setFilterRole(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Roles</option>
                 <option value="admin">Admin</option>
                 <option value="user">User</option>
               </select>
             </div>
-            
+
+            <div className="w-full sm:w-48">
+              <select
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>  
             <div className="text-sm text-gray-500">
               {filteredUsers.length} of {users.length} users
             </div>

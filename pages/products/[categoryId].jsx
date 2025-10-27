@@ -578,6 +578,48 @@ export default function ProductsByCategory() {
     }
   };
 
+  // Flavor management for Add/Edit form
+  const addFlavor = () => {
+    setForm(prev => ({
+      ...prev,
+      flavors: [...prev.flavors, { 
+        name: '', 
+        price: '', 
+        stock: 0, 
+        sku: '',
+        isActive: true 
+      }]
+    }));
+  };
+
+  const removeFlavor = (index) => {
+    setForm(prev => ({
+      ...prev,
+      flavors: prev.flavors.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateFlavor = (index, field, value) => {
+    setForm(prev => ({
+      ...prev,
+      flavors: prev.flavors.map((f, i) => {
+        if (i !== index) return f;
+        // Handle nested fields if needed
+        if (field.includes('.')) {
+          const [parent, child] = field.split('.');
+          return {
+            ...f,
+            [parent]: {
+              ...f[parent],
+              [child]: value
+            }
+          };
+        }
+        return { ...f, [field]: value };
+      })
+    }));
+  };
+
   // Variant management for Add form
   const addVariant = () => {
     setForm(prev => ({
@@ -605,28 +647,6 @@ export default function ProductsByCategory() {
         }
         return { ...v, [field]: value };
       })
-    }));
-  };
-
-  // Flavor management for Add form
-  const addFlavor = () => {
-    setForm(prev => ({
-      ...prev,
-      flavors: [...prev.flavors, { name: '', price: '' }]
-    }));
-  };
-
-  const removeFlavor = (index) => {
-    setForm(prev => ({
-      ...prev,
-      flavors: prev.flavors.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateFlavor = (index, field, value) => {
-    setForm(prev => ({
-      ...prev,
-      flavors: prev.flavors.map((f, i) => i === index ? { ...f, [field]: value } : f)
     }));
   };
 
@@ -1353,6 +1373,7 @@ export default function ProductsByCategory() {
                       onChange={(e) => updateFlavor(index, 'name', e.target.value)}
                       placeholder="e.g., Chocolate, Vanilla"
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      required
                     />
                   </div>
                   <div>
@@ -1365,8 +1386,45 @@ export default function ProductsByCategory() {
                       min="0"
                       step="0.01"
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      required
                     />
                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="block text-xs text-gray-700 mb-1">Stock</label>
+                    <input 
+                      type="number" 
+                      value={flavor.stock || 0} 
+                      onChange={(e) => updateFlavor(index, 'stock', parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                      min="0"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-700 mb-1">SKU (Optional)</label>
+                    <input 
+                      type="text" 
+                      value={flavor.sku || ''} 
+                      onChange={(e) => updateFlavor(index, 'sku', e.target.value)}
+                      placeholder="e.g., CHOC-250G"
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center mt-2">
+                  <input
+                    type="checkbox"
+                    id={`flavor-active-${index}`}
+                    checked={flavor.isActive !== false}
+                    onChange={(e) => updateFlavor(index, 'isActive', e.target.checked)}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor={`flavor-active-${index}`} className="ml-2 block text-xs text-gray-700">
+                    Active
+                  </label>
                 </div>
               </div>
             ))}

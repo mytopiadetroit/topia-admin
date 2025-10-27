@@ -6,7 +6,7 @@ import axios from "axios";
   //   : "https://api.mypsyguide.io/api/";
 
           // const ConstantsUrl = "http://localhost:5000/api/";
-           const ConstantsUrl = "https://api.mypsyguide.io/api/";
+         const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -735,6 +735,43 @@ const toggleGalleryImageStatus = async (id, router) => {
   }
 };
 
+// Homepage Settings helpers (admin)
+const fetchHomepageSettings = async (router) => {
+  try {
+    return await Api('get', 'homepage-settings', null, router);
+  } catch (error) {
+    console.error('Error fetching homepage settings:', error);
+    throw error;
+  }
+};
+
+const updateHomepageSettings = async (data, router) => {
+  try {
+    return await Api('put', 'homepage-settings', data, router);
+  } catch (error) {
+    console.error('Error updating homepage settings:', error);
+    throw error;
+  }
+};
+
+const toggleRewardsSection = async (router) => {
+  try {
+    return await Api('put', 'homepage-settings/toggle-rewards', null, router);
+  } catch (error) {
+    console.error('Error toggling rewards section:', error);
+    throw error;
+  }
+};
+
+const toggleFeedbackSection = async (router) => {
+  try {
+    return await Api('put', 'homepage-settings/toggle-feedback', null, router);
+  } catch (error) {
+    console.error('Error toggling feedback section:', error);
+    throw error;
+  }
+};
+
 export { 
   Api, 
   timeSince, 
@@ -792,5 +829,9 @@ export {
   uploadGalleryImage,
   updateGalleryImage,
   deleteGalleryImage,
-  toggleGalleryImageStatus
+  toggleGalleryImageStatus,
+  fetchHomepageSettings,
+  updateHomepageSettings,
+  toggleRewardsSection,
+  toggleFeedbackSection
 };

@@ -145,7 +145,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
             <div className="flex items-center">
               {!collapsed && (
                 <a 
-                  href="https://main.d2hdxwwdjspab.amplifyapp.com/" 
+                  href="https://www.mypsyguide.io/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex flex-col items-center"

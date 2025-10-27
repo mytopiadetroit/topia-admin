@@ -7,6 +7,10 @@ import {
   updateRewardTaskApi,
   deleteRewardTaskApi,
   toggleRewardTaskVisibility,
+  fetchHomepageSettings,
+  updateHomepageSettings,
+  toggleRewardsSection,
+  toggleFeedbackSection,
   toast 
 } from '../service/service';
 import Swal from 'sweetalert2';
@@ -17,6 +21,10 @@ const RewardTasksManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [homepageSettings, setHomepageSettings] = useState({
+    rewardsSectionVisible: true,
+    feedbackSectionVisible: true
+  });
   const [formData, setFormData] = useState({
     taskId: '',
     title: '',
@@ -28,6 +36,20 @@ const RewardTasksManagement = () => {
 
   useEffect(() => {
     loadTasks();
+  }, []);
+
+  useEffect(() => {
+    const loadHomepageSettings = async () => {
+      try {
+        const response = await fetchHomepageSettings(router);
+        if (response.success) {
+          setHomepageSettings(response.data);
+        }
+      } catch (err) {
+        console.error('Failed to load homepage settings:', err);
+      }
+    };
+    loadHomepageSettings();
   }, []);
 
   const loadTasks = async () => {
@@ -227,6 +249,69 @@ const RewardTasksManagement = () => {
     }
   };
 
+  const handleToggleHomepageSection = async (section) => {
+    try {
+      let response;
+      if (section === 'rewards') {
+        response = await toggleRewardsSection(router);
+      } else if (section === 'feedback') {
+        response = await toggleFeedbackSection(router);
+      } else {
+        toast.error('Invalid section');
+        return;
+      }
+
+      if (response.success) {
+        toast.success(response.message);
+        // Refresh the page to reflect changes
+        window.location.reload();
+      } else {
+        toast.error(response.message || `Failed to toggle ${section} section`);
+      }
+    } catch (error) {
+      console.error(`Error toggling ${section} section:`, error);
+      toast.error(`An error occurred while toggling ${section} section`);
+    }
+  };
+
+  const handleShowHomepageSection = async (section) => {
+    try {
+      const response = await updateHomepageSettings({
+        [`${section}SectionVisible`]: true
+      }, router);
+
+      if (response.success) {
+        toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} section shown successfully`);
+        // Refresh the page to reflect changes
+        window.location.reload();
+      } else {
+        toast.error(response.message || `Failed to show ${section} section`);
+      }
+    } catch (error) {
+      console.error(`Error showing ${section} section:`, error);
+      toast.error(`An error occurred while showing ${section} section`);
+    }
+  };
+
+  const handleHideHomepageSection = async (section) => {
+    try {
+      const response = await updateHomepageSettings({
+        [`${section}SectionVisible`]: false
+      }, router);
+
+      if (response.success) {
+        toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} section hidden successfully`);
+        // Refresh the page to reflect changes
+        window.location.reload();
+      } else {
+        toast.error(response.message || `Failed to hide ${section} section`);
+      }
+    } catch (error) {
+      console.error(`Error hiding ${section} section:`, error);
+      toast.error(`An error occurred while hiding ${section} section`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar />
@@ -239,6 +324,28 @@ const RewardTasksManagement = () => {
               <p className="text-gray-600">Create and manage reward tasks for users</p>
             </div>
             <div className="flex gap-2">
+              {/* Homepage Section Toggle Buttons */}
+              <div className="flex gap-1 mr-2">
+                <button
+                  onClick={() => homepageSettings.rewardsSectionVisible ? handleHideHomepageSection('rewards') : handleShowHomepageSection('rewards')}
+                  className={`px-3 py-2 text-white text-sm rounded-md hover:opacity-80 transition-colors ${
+                    homepageSettings.rewardsSectionVisible ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                  title={homepageSettings.rewardsSectionVisible ? 'Hide Rewards Section' : 'Show Rewards Section'}
+                >
+                  {homepageSettings.rewardsSectionVisible ? '👁️‍🗨️ Hide Rewards' : '👁️ Show Rewards'}
+                </button>
+                <button
+                  onClick={() => homepageSettings.feedbackSectionVisible ? handleHideHomepageSection('feedback') : handleShowHomepageSection('feedback')}
+                  className={`px-3 py-2 text-white text-sm rounded-md hover:opacity-80 transition-colors ${
+                    homepageSettings.feedbackSectionVisible ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                  title={homepageSettings.feedbackSectionVisible ? 'Hide Feedback Section' : 'Show Feedback Section'}
+                >
+                  {homepageSettings.feedbackSectionVisible ? '👁️‍🗨️ Hide Feedback' : '👁️ Show Feedback'}
+                </button>
+              </div>
+
               {tasks.length > 0 && (
                 <>
                   <button
