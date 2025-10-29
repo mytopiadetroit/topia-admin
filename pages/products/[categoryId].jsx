@@ -354,6 +354,7 @@ export default function ProductsByCategory() {
       name: product.name || '',
       price: product.price || '',
       stock: product.stock ?? '',
+      
       descriptionMain: product.description?.main || '',
       descriptionDetails: product.description?.details || '',
       primaryUse: product.primaryUse || 'therapeutic',
@@ -404,11 +405,11 @@ export default function ProductsByCategory() {
     if (!formData.name.trim()) {
       errors.name = 'Product name is required';
     }
-    if (!formData.price || formData.price <= 0) {
-      errors.price = 'Valid price is required';
+    if (formData.price && formData.price < 0) {
+      errors.price = 'Price cannot be negative';
     }
-    if (formData.stock === undefined || formData.stock === '' || formData.stock < 0) {
-      errors.stock = 'Valid stock quantity is required';
+    if (formData.stock !== undefined && formData.stock !== '' && formData.stock < 0) {
+      errors.stock = 'Stock quantity cannot be negative';
     }
     if (!formData.descriptionMain.trim()) {
       errors.descriptionMain = 'Main description is required';
@@ -713,13 +714,13 @@ export default function ProductsByCategory() {
       errorMessages.push('• Product name is required');
       fieldErrors.name = 'Product name is required';
     }
-    if (!form.price || form.price <= 0) {
-      errorMessages.push('• Valid price is required');
-      fieldErrors.price = 'Valid price is required';
+    if (form.price !== undefined && form.price !== '' && form.price < 0) {
+      errorMessages.push('• Price cannot be negative');
+      fieldErrors.price = 'Price cannot be negative';
     }
-    if (form.stock === undefined || form.stock === '' || form.stock < 0) {
-      errorMessages.push('• Valid stock quantity is required');
-      fieldErrors.stock = 'Valid stock quantity is required';
+    if (form.stock !== undefined && form.stock !== '' && form.stock < 0) {
+      errorMessages.push('• Stock quantity cannot be negative');
+      fieldErrors.stock = 'Stock quantity cannot be negative';
     }
     if (!form.intensity || form.intensity < 1 || form.intensity > 10) {
       errorMessages.push('• Intensity must be between 1 and 10');
@@ -797,8 +798,12 @@ export default function ProductsByCategory() {
       setSaving(true);
       const fd = new FormData();
       fd.append('name', form.name);
-      fd.append('price', String(form.price));
-      fd.append('stock', String(form.stock || 0));
+      if (form.price !== '' && form.price !== null && form.price !== undefined) {
+        fd.append('price', String(form.price));
+      }
+      if (form.stock !== '' && form.stock !== null && form.stock !== undefined) {
+        fd.append('stock', String(form.stock));
+      }
       fd.append('primaryUse', form.primaryUse);
       fd.append('hasStock', String(form.hasStock));
       fd.append('category', categoryId);
@@ -1771,67 +1776,104 @@ export default function ProductsByCategory() {
         )}
 
         {/* Flavors Section (Optional) */}
-        <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Available Flavors (Optional)</h3>
-              <p className="text-xs text-gray-600 mt-1">Add flavors available for this product</p>
-            </div>
-            <button 
-              type="button" 
-              onClick={addEditFlavor} 
-              className="flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Flavor
-            </button>
-          </div>
-          
-          {editForm.flavors.length === 0 && (
-            <p className="text-sm text-gray-500 text-center py-4">No flavors added. Flavors are optional.</p>
-          )}
+      <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+  <div className="flex items-center justify-between mb-3">
+    <div>
+      <h3 className="text-sm font-semibold text-gray-900">Available Flavors (Optional)</h3>
+      <p className="text-xs text-gray-600 mt-1">Add flavors available for this product</p>
+    </div>
+    <button 
+      type="button" 
+      onClick={addEditFlavor} 
+      className="flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+    >
+      <Plus className="h-4 w-4 mr-1" />
+      Add Flavor
+    </button>
+  </div>
+  
+  {editForm.flavors.length === 0 && (
+    <p className="text-sm text-gray-500 text-center py-4">No flavors added. Flavors are optional.</p>
+  )}
 
-          <div className="space-y-2">
-            {editForm.flavors.map((flavor, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start justify-between mb-2">
-                  <span className="text-xs font-semibold text-gray-600">Flavor #{index + 1}</span>
-                  <button 
-                    type="button" 
-                    onClick={() => removeEditFlavor(index)} 
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-700 mb-1">Flavor Name</label>
-                    <input 
-                      type="text" 
-                      value={flavor.name || ''} 
-                      onChange={(e) => updateEditFlavor(index, 'name', e.target.value)}
-                      placeholder="e.g., Chocolate, Vanilla"
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-700 mb-1">Price</label>
-                    <input 
-                      type="number" 
-                      value={flavor.price || ''} 
-                      onChange={(e) => updateEditFlavor(index, 'price', e.target.value)}
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
+  <div className="space-y-2">
+    {editForm.flavors.map((flavor, index) => (
+      <div key={index} className="bg-white border border-gray-200 rounded-lg p-3">
+        <div className="flex items-start justify-between mb-2">
+          <span className="text-xs font-semibold text-gray-600">Flavor #{index + 1}</span>
+          <button 
+            type="button" 
+            onClick={() => removeEditFlavor(index)} 
+            className="text-red-600 hover:text-red-800"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-700 mb-1">Flavor Name</label>
+            <input 
+              type="text" 
+              value={flavor.name || ''} 
+              onChange={(e) => updateEditFlavor(index, 'name', e.target.value)}
+              placeholder="e.g., Chocolate, Vanilla"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-700 mb-1">Price</label>
+            <input 
+              type="number" 
+              value={flavor.price || ''} 
+              onChange={(e) => updateEditFlavor(index, 'price', e.target.value)}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+            />
           </div>
         </div>
+        {/* ✅ Add Stock & SKU fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+          <div>
+            <label className="block text-xs text-gray-700 mb-1">Stock</label>
+            <input 
+              type="number" 
+              value={flavor.stock ?? 0} 
+              onChange={(e) => updateEditFlavor(index, 'stock', parseInt(e.target.value) || 0)}
+              placeholder="0"
+              min="0"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-700 mb-1">SKU (Optional)</label>
+            <input 
+              type="text" 
+              value={flavor.sku || ''} 
+              onChange={(e) => updateEditFlavor(index, 'sku', e.target.value)}
+              placeholder="e.g., CHOC-250G"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        {/* ✅ Add Active checkbox */}
+        <div className="flex items-center mt-2">
+          <input
+            type="checkbox"
+            id={`edit-flavor-active-${index}`}
+            checked={flavor.isActive !== false}
+            onChange={(e) => updateEditFlavor(index, 'isActive', e.target.checked)}
+            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor={`edit-flavor-active-${index}`} className="ml-2 block text-xs text-gray-700">
+            Active
+          </label>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
 
         {/* Main Description */}
         <div>
