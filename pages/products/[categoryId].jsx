@@ -484,7 +484,16 @@ export default function ProductsByCategory() {
       fd.append('price', String(editForm.price));
       fd.append('stock', String(editForm.stock || 0));
       fd.append('primaryUse', editForm.primaryUse);
-      fd.append('hasStock', String(editForm.hasStock));
+      // Calculate hasStock based on variants if they exist
+      let finalHasStock = editForm.hasStock;
+      if (editForm.hasVariants && editForm.variants && editForm.variants.length > 0) {
+        // If variants exist, hasStock should be true if any variant has stock > 0
+        const hasVariantStock = editForm.variants.some(variant => Number(variant.stock || 0) > 0);
+        finalHasStock = hasVariantStock;
+        console.log('Calculated edit hasStock from variants:', finalHasStock, 'variants:', editForm.variants.map(v => ({ stock: v.stock })));
+      }
+      console.log('Submitting edit hasStock value:', finalHasStock, 'as string:', String(finalHasStock));
+      fd.append('hasStock', String(finalHasStock));
       fd.append('category', categoryId);
       fd.append('description', JSON.stringify({ main: editForm.descriptionMain, details: editForm.descriptionDetails }));
       fd.append('existingImages', JSON.stringify(editKeepImages));
@@ -805,7 +814,16 @@ export default function ProductsByCategory() {
         fd.append('stock', String(form.stock));
       }
       fd.append('primaryUse', form.primaryUse);
-      fd.append('hasStock', String(form.hasStock));
+      // Calculate hasStock based on variants if they exist
+      let finalHasStock = form.hasStock;
+      if (form.hasVariants && form.variants && form.variants.length > 0) {
+        // If variants exist, hasStock should be true if any variant has stock > 0
+        const hasVariantStock = form.variants.some(variant => Number(variant.stock || 0) > 0);
+        finalHasStock = hasVariantStock;
+        console.log('Calculated hasStock from variants:', finalHasStock, 'variants:', form.variants.map(v => ({ stock: v.stock })));
+      }
+      console.log('Submitting hasStock value:', finalHasStock, 'as string:', String(finalHasStock));
+      fd.append('hasStock', String(finalHasStock));
       fd.append('category', categoryId);
       fd.append('description', JSON.stringify({ 
         main: form.descriptionMain, 
@@ -1214,7 +1232,15 @@ export default function ProductsByCategory() {
             <input 
               type="checkbox" 
               checked={form.hasVariants} 
-              onChange={(e) => setForm(prev => ({ ...prev, hasVariants: e.target.checked }))} 
+              onChange={(e) => {
+                const hasVariants = e.target.checked;
+                setForm(prev => ({ 
+                  ...prev, 
+                  hasVariants,
+                  // When enabling variants, ensure hasStock is true by default
+                  hasStock: hasVariants ? true : prev.hasStock
+                }));
+              }} 
               className="h-5 w-5 text-blue-600 border-gray-300 rounded"
             />
           </div>
@@ -1478,8 +1504,24 @@ export default function ProductsByCategory() {
             </div>
           </div>
           <div className="flex items-center space-x-2 mt-6">
-            <input id="hasStock" required type="checkbox" name="hasStock" checked={form.hasStock} onChange={handleChange} className="h-4 w-4 text-blue-600 border-gray-300 rounded" />
-            <label htmlFor="hasStock" className="text-sm text-gray-700">In Stock</label>
+            <input 
+              id="hasStock" 
+              type="checkbox" 
+              name="hasStock" 
+              checked={form.hasStock} 
+              onChange={(e) => {
+                console.log('hasStock checkbox changed:', e.target.checked);
+                setForm(prev => ({ ...prev, hasStock: e.target.checked }));
+              }} 
+              className="h-4 w-4 text-blue-600 border-gray-300 rounded" 
+              disabled={form.hasVariants && form.variants && form.variants.length > 0}
+            />
+            <label htmlFor="hasStock" className="text-sm text-gray-700">
+              In Stock
+              {form.hasVariants && form.variants && form.variants.length > 0 && (
+                <span className="text-xs text-blue-600 ml-2">(Auto-calculated from variants)</span>
+              )}
+            </label>
           </div>
         </div>
 
@@ -1926,13 +1968,19 @@ export default function ProductsByCategory() {
               id="editHasStock"
               type="checkbox"
               name="hasStock"
-              required
               checked={editForm.hasStock}
-              onChange={handleEditChange}
+              onChange={(e) => {
+                console.log('Edit hasStock checkbox changed:', e.target.checked);
+                setEditForm(prev => ({ ...prev, hasStock: e.target.checked }));
+              }}
               className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              disabled={editForm.hasVariants && editForm.variants && editForm.variants.length > 0}
             />
             <label htmlFor="editHasStock" className="text-sm text-gray-700">
               In Stock
+              {editForm.hasVariants && editForm.variants && editForm.variants.length > 0 && (
+                <span className="text-xs text-blue-600 ml-2">(Auto-calculated from variants)</span>
+              )}
             </label>
           </div>
         </div>
