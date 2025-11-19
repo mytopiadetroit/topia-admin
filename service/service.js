@@ -1,12 +1,12 @@
 import axios from "axios";
 
 
-  // const ConstantsUrl = typeof window !== 'undefined' && window.location.host.includes('localhost')
-  //   ? "http://localhost:5000/api/"
-  //   : "https://api.mypsyguide.io/api/";
+// const ConstantsUrl = typeof window !== 'undefined' && window.location.host.includes('localhost')
+//   ? "http://localhost:5000/api/"
+//   : "https://api.mypsyguide.io/api/";
 
-        //  const ConstantsUrl = "http://localhost:5000/api/";
-          const ConstantsUrl = "https://api.mypsyguide.io/api/";
+// const ConstantsUrl = "http://localhost:5005/api/";
+const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -17,12 +17,12 @@ function Api(method, url, data, router, params) {
       resolve({ success: false, redirect: true });
       return;
     }
-    
+
     let token = "";
     if (typeof window !== "undefined") {
       token = localStorage?.getItem("token") || "";
     }
-    
+
     axios({
       method,
       url: ConstantsUrl + url,
@@ -57,17 +57,17 @@ function ApiFormData(method, url, data, router, params) {
       resolve({ success: false, redirect: true });
       return;
     }
-    
+
     let token = "";
     if (typeof window !== "undefined") {
       token = localStorage?.getItem("token") || "";
     }
-    
+
     axios({
       method,
       url: ConstantsUrl + url,
       data,
-      headers: { 
+      headers: {
         Authorization: `jwt ${token}`,
         'Content-Type': 'multipart/form-data'
       },
@@ -100,26 +100,26 @@ axios.interceptors.response.use(
     if (error.response && error.response.status === 401 && typeof window !== "undefined") {
       if (!isRedirecting) {
         isRedirecting = true;
-        
+
         if (typeof window !== "undefined") {
           localStorage.removeItem("userDetail");
           localStorage.removeItem("token");
-            window.location.href = "/";
+          window.location.href = "/";
           window.dispatchEvent(new Event('storage'));
           document.dispatchEvent(new Event('auth-state-changed'));
-          
+
           if (window.router && !window.router.pathname.includes("login")) {
             window.router.push("/");
           } else {
             window.location.href = "/";
           }
         }
-        
+
         setTimeout(() => {
           isRedirecting = false;
         }, 2000);
       }
-      
+
       return Promise.resolve({
         data: { success: false, redirect: true }
       });
@@ -137,26 +137,26 @@ function notifyAuthChange() {
 
 const handleTokenExpiration = (router) => {
   if (isRedirecting) return true;
-  
+
   console.log("Token expired, logging out user...");
   isRedirecting = true;
-  
+
   try {
     if (typeof window !== "undefined") {
       localStorage.removeItem("userDetail");
       localStorage.removeItem("token");
-      
+
       notifyAuthChange();
-      
+
       if (router && !router.pathname.includes("login")) {
         router.push("/");
       }
     }
-    
+
     setTimeout(() => {
       isRedirecting = false;
     }, 2000);
-    
+
     return true;
   } catch (error) {
     console.error("Error during logout:", error);
@@ -229,9 +229,9 @@ const fetchAllCategories = async (router) => {
 };
 
 // Helper function to fetch products by category
-const fetchProductsByCategory = async (categoryId, router) => {
+const fetchProductsByCategory = async (categoryId, router, page, limit) => {
   try {
-    return await Api('get', `products/category/paginated/${categoryId}`, null, router);
+    return await Api('get', `products/category/paginated/${categoryId}?page=${page}&limlt=${limit}`, null, router);
   } catch (error) {
     console.error('Error fetching products by category:', error);
     throw error;
@@ -689,6 +689,34 @@ const toggleRewardTaskVisibility = async (id, router) => {
   }
 };
 
+// stting management (admin)
+const fetchAllsettingImages = async (router, page) => {
+  try {
+    return await Api('get', `setting/admin/pageimage/all?pagename=${page}`, null, router);
+  } catch (error) {
+    console.error('Error fetching gallery images:', error);
+    throw error;
+  }
+};
+
+const uploadSettingImage = async (formData, router) => {
+  try {
+    return await ApiFormData('post', 'setting/admin/pageimage/upload', formData, router);
+  } catch (error) {
+    console.error('Error uploading gallery image:', error);
+    throw error;
+  }
+};
+
+const updateSettingImage = async (id, formData, router) => {
+  try {
+    return await ApiFormData('put', `setting/admin/pageimage/${id}`, formData, router);
+  } catch (error) {
+    console.error('Error updating gallery image:', error);
+    throw error;
+  }
+};
+
 // Gallery Management helpers (admin)
 const fetchAllGalleryImages = async (router) => {
   try {
@@ -772,21 +800,21 @@ const toggleFeedbackSection = async (router) => {
   }
 };
 
-export { 
-  Api, 
-  timeSince, 
-  ApiFormData, 
-  setGlobalRouter, 
-  toast, 
-  setGlobalToast, 
-  fetchAllCategories, 
-  fetchProductsByCategory, 
-  createProduct, 
+export {
+  Api,
+  timeSince,
+  ApiFormData,
+  setGlobalRouter,
+  toast,
+  setGlobalToast,
+  fetchAllCategories,
+  fetchProductsByCategory,
+  createProduct,
   updateProductApi,
   deleteProduct,
-  fetchAllUsers, 
-  fetchUserById, 
-  updateUser, 
+  fetchAllUsers,
+  fetchUserById,
+  updateUser,
   deleteUser,
   fetchAllOrders,
   updateOrderStatusApi,
@@ -833,5 +861,8 @@ export {
   fetchHomepageSettings,
   updateHomepageSettings,
   toggleRewardsSection,
-  toggleFeedbackSection
+  toggleFeedbackSection,
+  fetchAllsettingImages,
+  uploadSettingImage,
+  updateSettingImage
 };

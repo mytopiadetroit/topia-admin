@@ -3,12 +3,12 @@ import { useRouter } from 'next/router';
 import Sidebar from '../components/sidebar';
 import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin } from '../service/service';
 import Swal from 'sweetalert2';
-import { 
-  Users, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Eye, 
+import {
+  Users,
+  Search,
+  Edit,
+  Trash2,
+  Eye,
   Plus,
   Filter,
   Download,
@@ -24,7 +24,7 @@ import {
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   // State for data and UI
-  
+
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState('all');
   const [page, setPage] = useState(1);
@@ -33,7 +33,7 @@ export default function UsersPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTimeout, setSearchTimeout] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  
+
   // UI State
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
@@ -41,23 +41,23 @@ export default function UsersPage() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [searchInput, setSearchInput] = useState('');
-  
+
   const router = useRouter();
 
   // Load users when page or filters change
   useEffect(() => {
     const controller = new AbortController();
-    
+
     const loadUsers = async () => {
       try {
         setLoading(true);
-        const params = { 
-          page, 
+        const params = {
+          page,
           limit: 10,
           status: filterStatus === 'all' ? undefined : filterStatus,
           search: searchTerm
         };
-      
+
         const response = await fetchAllUsers(router, params);
         if (response.success) {
           setUsers(response.data || []);
@@ -74,9 +74,9 @@ export default function UsersPage() {
         setLoading(false);
       }
     };
-    
+
     loadUsers();
-    
+
     return () => {
       controller.abort();
       if (searchTimeout) {
@@ -85,25 +85,25 @@ export default function UsersPage() {
     };
   }, [page, filterStatus, searchTerm]);
 
-const handleSearch = useCallback((e) => {
-  const value = e.target.value;
-  
-  // Clear previous timeout
-  if (searchTimeout) {
-    clearTimeout(searchTimeout);
-  }
-  
-  // Set a new timeout
-  const newTimeout = setTimeout(() => {
-    setSearchTerm(value); // Move searchTerm update inside timeout
-    setPage(1);
-  }, 500);
-  
-  setSearchTimeout(newTimeout);
-}, [searchTimeout]);
+  const handleSearch = useCallback((e) => {
+    const value = e.target.value;
+
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // Set a new timeout
+    const newTimeout = setTimeout(() => {
+      setSearchTerm(value); // Move searchTerm update inside timeout
+      setPage(1);
+    }, 500);
+
+    setSearchTimeout(newTimeout);
+  }, [searchTimeout]);
 
   // Memoize filtered users to prevent unnecessary re-renders
-  const filteredUsers = useMemo(() => 
+  const filteredUsers = useMemo(() =>
     users.filter(user => filterRole === 'all' || user.role === filterRole),
     [users, filterRole]
   );
@@ -111,19 +111,19 @@ const handleSearch = useCallback((e) => {
   // Handle delete user
   useEffect(() => {
     const controller = new AbortController();
-    
+
     const fetchData = async () => {
       try {
         setLoading(true);
-        const params = { 
-          page, 
+        const params = {
+          page,
           limit: 10,
           status: filterStatus === 'all' ? undefined : filterStatus,
           search: searchTerm
         };
-        
+
         const response = await fetchAllUsers(router, params);
-        
+
         if (response.success) {
           setUsers(response.data || []);
           if (response.meta) {
@@ -140,9 +140,9 @@ const handleSearch = useCallback((e) => {
         if (isInitialLoad) setIsInitialLoad(false);
       }
     };
-    
+
     fetchData();
-    
+
     return () => {
       controller.abort();
       if (searchTimeout) {
@@ -177,7 +177,7 @@ const handleSearch = useCallback((e) => {
     try {
       setUserModalLoading(true);
       setShowUserModal(true);
-      
+
       const response = await fetchUserById(userId, router);
       if (response.success) {
         setSelectedUser(response.data);
@@ -220,7 +220,7 @@ const handleSearch = useCallback((e) => {
       admin: 'bg-red-100 text-red-800',
       user: 'bg-green-100 text-green-800'
     };
-    
+
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${roleColors[role] || 'bg-gray-100 text-gray-800'}`}>
         {role}
@@ -242,67 +242,67 @@ const handleSearch = useCallback((e) => {
     );
   };
 
-const handleChangeStatus = async (userId, status) => {
-  try {
-    // First show confirmation dialog
-    const result = await Swal.fire({
-      title: 'Confirm Status Change',
-      text: `Are you sure you want to change status to ${status}?`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, update it!',
-      cancelButtonText: 'Cancel'
-    });
+  const handleChangeStatus = async (userId, status) => {
+    try {
+      // First show confirmation dialog
+      const result = await Swal.fire({
+        title: 'Confirm Status Change',
+        text: `Are you sure you want to change status to ${status}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, update it!',
+        cancelButtonText: 'Cancel'
+      });
 
-    if (result.isConfirmed) {
-      const res = await updateUserStatusAdmin(userId, status, router);
-      if (res.success) {
-        // Show success message with SweetAlert2
-        await Swal.fire({
-          title: 'Success!',
-          text: 'User status has been updated successfully.',
-          icon: 'success',
-          confirmButtonColor: '#3085d6',
-          timer: 2000,
-          timerProgressBar: true
-        });
-        // Refresh the users list after successful status update
-        const response = await fetchAllUsers(router, { 
-          page, 
-          limit: 10,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          search: searchTerm
-        });
-        
-        if (response.success) {
-          setUsers(response.data || []);
-          if (response.meta) {
-            setTotalPages(response.meta.totalPages || 1);
+      if (result.isConfirmed) {
+        const res = await updateUserStatusAdmin(userId, status, router);
+        if (res.success) {
+          // Show success message with SweetAlert2
+          await Swal.fire({
+            title: 'Success!',
+            text: 'User status has been updated successfully.',
+            icon: 'success',
+            confirmButtonColor: '#3085d6',
+            timer: 2000,
+            timerProgressBar: true
+          });
+          // Refresh the users list after successful status update
+          const response = await fetchAllUsers(router, {
+            page,
+            limit: 10,
+            status: filterStatus === 'all' ? undefined : filterStatus,
+            search: searchTerm
+          });
+
+          if (response.success) {
+            setUsers(response.data || []);
+            if (response.meta) {
+              setTotalPages(response.meta.totalPages || 1);
+            }
           }
+        } else {
+          // Show error message with SweetAlert2
+          await Swal.fire({
+            title: 'Error!',
+            text: res.message || 'Failed to update status',
+            icon: 'error',
+            confirmButtonColor: '#3085d6'
+          });
         }
-      } else {
-        // Show error message with SweetAlert2
-        await Swal.fire({
-          title: 'Error!',
-          text: res.message || 'Failed to update status',
-          icon: 'error',
-          confirmButtonColor: '#3085d6'
-        });
       }
+    } catch (error) {
+      console.error('Status update error:', error);
+
+      await Swal.fire({
+        title: 'Error!',
+        text: 'Error updating status',
+        icon: 'error',
+        confirmButtonColor: '#3085d6'
+      });
     }
-  } catch (error) {
-    console.error('Status update error:', error);
-    
-    await Swal.fire({
-      title: 'Error!',
-      text: 'Error updating status',
-      icon: 'error',
-      confirmButtonColor: '#3085d6'
-    });
-  }
-};
+  };
 
   const formatBirthday = (birthday) => {
     if (!birthday) return 'Not provided';
@@ -358,7 +358,7 @@ const handleChangeStatus = async (userId, status) => {
               <h1 className="text-3xl font-bold text-gray-900">Users</h1>
               <p className="text-gray-600 mt-2">Manage all registered users</p>
             </div>
-                         {/* <div className="flex items-center space-x-3">
+            {/* <div className="flex items-center space-x-3">
                <button className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                  <Download className="h-4 w-4 mr-2" />
                  Export
@@ -375,55 +375,55 @@ const handleChangeStatus = async (userId, status) => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-             <input
-  type="text"
-  placeholder="Search users..."
-  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-  value={searchInput}
-  onChange={(e) => {
-    setSearchInput(e.target.value); // Update local state immediately
-    handleSearch(e); // Debounced search
-  }}
-  onKeyPress={(e) => e.key === 'Enter' && loadUsers()}
-/>
-            </div>
-            
-            <div className="w-full sm:w-48">
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={filterRole}
-                onChange={(e) => setFilterRole(e.target.value)}
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-              </select>
-            </div>
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={searchInput}
+                  onChange={(e) => {
+                    setSearchInput(e.target.value); // Update local state immediately
+                    handleSearch(e); // Debounced search
+                  }}
+                  onKeyPress={(e) => e.key === 'Enter' && loadUsers()}
+                />
+              </div>
 
-            <div className="w-full sm:w-48">
-              <select
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <div className="w-full sm:w-48">
+                <select
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={filterRole}
+                  onChange={(e) => setFilterRole(e.target.value)}
+                >
+                  <option value="all">All Roles</option>
+                  <option value="admin">Admin</option>
+                  <option value="user">User</option>
+                </select>
+              </div>
+
+              <div className="w-full sm:w-48">
+                <select
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  {statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>  
             <div className="text-sm text-gray-500">
               {filteredUsers.length} of {users.length} users
             </div>
           </div>
         </div>
 
-         {/* Users Table */}
-         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {/* Users Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -500,6 +500,13 @@ const handleChangeStatus = async (userId, status) => {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
+                        <button
+                          onClick={() => router.push(`/admin/order/${user._id}`)}
+                          className="text-blue-600 hover:text-blue-900 p-1 border-2 rounded-lg"
+                          title="View User"
+                        >
+                          Orders
+                        </button>
                         <select
                           value={user.status || 'pending'}
                           onChange={(e) => handleChangeStatus(user._id, e.target.value)}
@@ -516,249 +523,249 @@ const handleChangeStatus = async (userId, status) => {
               </tbody>
             </table>
           </div>
-          
+
           {filteredUsers.length === 0 && (
             <div className="text-center py-12">
               <Users className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
               <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || filterRole !== 'all' 
+                {searchTerm || filterRole !== 'all'
                   ? 'Try adjusting your search or filter criteria.'
                   : 'Get started by adding a new user.'
                 }
               </p>
             </div>
-                     )}
-          </div>
+          )}
+        </div>
 
-          {/* Pagination inside table area */}
-          <div className="px-4 py-3 bg-white border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
-            <div className="space-x-2">
+        {/* Pagination inside table area */}
+        <div className="px-4 py-3 bg-white border-t border-gray-200 flex items-center justify-between">
+          <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
+          <div className="space-x-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className={`px-3 py-2 rounded border ${page === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className={`px-3 py-2 rounded border ${page === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* User Details Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className={`px-3 py-2 rounded border ${page === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                onClick={closeUserModal}
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
-                Previous
+                <X className="h-6 w-6" />
               </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              {userModalLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : selectedUser ? (
+                <div className="space-y-6">
+                  {/* User Avatar and Basic Info */}
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      {selectedUser.avatar ? (
+                        <img
+                          className="h-16 w-16 rounded-full"
+                          src={selectedUser.avatar}
+                          alt={selectedUser.fullName}
+                        />
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-blue-600 font-bold text-xl">
+                            {selectedUser.fullName?.charAt(0)?.toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {selectedUser.fullName}
+                      </h3>
+                      <p className="text-sm text-gray-500">User ID: {selectedUser._id}</p>
+                      <div className="mt-1">
+                        {getRoleBadge(selectedUser.role)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Contact Information
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-20">Email:</span>
+                        <span className="text-gray-900">{selectedUser.email}</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-20">Phone:</span>
+                        <span className="text-gray-900">{selectedUser.phone}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Personal Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                      <User className="h-4 w-4 mr-2" />
+                      Personal Information
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-24">Full Name:</span>
+                        <span className="text-gray-900">{selectedUser.fullName}</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-24">Birthday:</span>
+                        <span className="text-gray-900">{formatBirthday(selectedUser.birthday)}</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-24">How did you hear:</span>
+                        <span className="text-gray-900">{selectedUser.howDidYouHear || 'Not provided'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Account Created</h3>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {new Date(selectedUser.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</h3>
+                      <div className="mt-1">
+                        {getStatusBadge(selectedUser.status)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Medication Information */}
+                  <div className="mt-6 space-y-2">
+                    <h3 className="text-sm font-medium text-gray-700">Medication Information</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="text-xs font-medium text-gray-500">Takes Medication</h4>
+                          <p className="mt-1 text-sm text-gray-900">
+                            {selectedUser.takesMedication ? 'Yes' : 'No'}
+                          </p>
+                        </div>
+                        {selectedUser.takesMedication && selectedUser.medicationDetails && (
+                          <div>
+                            <h4 className="text-xs font-medium text-gray-500">Medication Details</h4>
+                            <p className="mt-1 text-sm text-gray-900 break-words">
+                              {selectedUser.medicationDetails}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Account Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Account Information
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-24">Role:</span>
+                        <span className="text-gray-900">{getRoleBadge(selectedUser.role)}</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-24">Joined:</span>
+                        <span className="text-gray-900">{formatDate(selectedUser.createdAt)}</span>
+                      </div>
+                      {selectedUser.status && (
+                        <div className="flex items-center text-sm">
+                          <span className="font-medium text-gray-600 w-24">Status:</span>
+                          <span className="text-gray-900">{getStatusBadge(selectedUser.status)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Additional Information */}
+                  {selectedUser.avatar && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Profile Picture</h4>
+                      <img
+                        src={selectedUser.avatar}
+                        alt={selectedUser.fullName}
+                        className="h-32 w-32 rounded-lg object-cover"
+                      />
+                    </div>
+                  )}
+
+                  {selectedUser.governmentId && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Government ID</h4>
+                      {/\.pdf($|\?)/i.test(selectedUser.governmentId) ? (
+                        <div className="w-full h-96">
+                          <iframe src={selectedUser.governmentId} className="w-full h-full rounded" />
+                        </div>
+                      ) : (
+                        <img
+                          src={selectedUser.governmentId}
+                          alt="Government ID"
+                          className="max-h-96 rounded object-contain"
+                        />
+                      )}
+                      <div className="mt-2">
+                        <a href={selectedUser.governmentId} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
+                          Open original
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">No user data available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className={`px-3 py-2 rounded border ${page === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                onClick={closeUserModal}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
               >
-                Next
+                Close
               </button>
             </div>
           </div>
-       </div>
-
-       {/* User Details Modal */}
-       {showUserModal && (
-         <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
-           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-             {/* Modal Header */}
-             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-               <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
-               <button
-                 onClick={closeUserModal}
-                 className="text-gray-400 hover:text-gray-600 p-1"
-               >
-                 <X className="h-6 w-6" />
-               </button>
-             </div>
-
-             {/* Modal Content */}
-             <div className="p-6">
-               {userModalLoading ? (
-                 <div className="flex items-center justify-center py-12">
-                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                 </div>
-               ) : selectedUser ? (
-                 <div className="space-y-6">
-                   {/* User Avatar and Basic Info */}
-                   <div className="flex items-center space-x-4">
-                     <div className="flex-shrink-0">
-                       {selectedUser.avatar ? (
-                         <img
-                           className="h-16 w-16 rounded-full"
-                           src={selectedUser.avatar}
-                           alt={selectedUser.fullName}
-                         />
-                       ) : (
-                         <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
-                           <span className="text-blue-600 font-bold text-xl">
-                             {selectedUser.fullName?.charAt(0)?.toUpperCase()}
-                           </span>
-                         </div>
-                       )}
-                     </div>
-                     <div>
-                       <h3 className="text-lg font-semibold text-gray-900">
-                         {selectedUser.fullName}
-                       </h3>
-                       <p className="text-sm text-gray-500">User ID: {selectedUser._id}</p>
-                       <div className="mt-1">
-                         {getRoleBadge(selectedUser.role)}
-                       </div>
-                     </div>
-                   </div>
-
-                   {/* Contact Information */}
-                   <div className="bg-gray-50 rounded-lg p-4">
-                     <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                       <Mail className="h-4 w-4 mr-2" />
-                       Contact Information
-                     </h4>
-                     <div className="space-y-2">
-                       <div className="flex items-center text-sm">
-                         <span className="font-medium text-gray-600 w-20">Email:</span>
-                         <span className="text-gray-900">{selectedUser.email}</span>
-                       </div>
-                       <div className="flex items-center text-sm">
-                         <span className="font-medium text-gray-600 w-20">Phone:</span>
-                         <span className="text-gray-900">{selectedUser.phone}</span>
-                       </div>
-                     </div>
-                   </div>
-
-                   {/* Personal Information */}
-                   <div className="bg-gray-50 rounded-lg p-4">
-                     <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                       <User className="h-4 w-4 mr-2" />
-                       Personal Information
-                     </h4>
-                     <div className="space-y-2">
-                       <div className="flex items-center text-sm">
-                         <span className="font-medium text-gray-600 w-24">Full Name:</span>
-                         <span className="text-gray-900">{selectedUser.fullName}</span>
-                       </div>
-                       <div className="flex items-center text-sm">
-                         <span className="font-medium text-gray-600 w-24">Birthday:</span>
-                         <span className="text-gray-900">{formatBirthday(selectedUser.birthday)}</span>
-                       </div>
-                       <div className="flex items-center text-sm">
-                         <span className="font-medium text-gray-600 w-24">How did you hear:</span>
-                         <span className="text-gray-900">{selectedUser.howDidYouHear || 'Not provided'}</span>
-                       </div>
-                     </div>
-                   </div>
-
-                   <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Account Created</h3>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {new Date(selectedUser.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</h3>
-                    <div className="mt-1">
-                      {getStatusBadge(selectedUser.status)}
-                    </div>
-                  </div>
-                </div>
-
-                   {/* Medication Information */}
-                   <div className="mt-6 space-y-2">
-                     <h3 className="text-sm font-medium text-gray-700">Medication Information</h3>
-                     <div className="bg-gray-50 p-4 rounded-lg">
-                       <div className="grid grid-cols-2 gap-4">
-                         <div>
-                           <h4 className="text-xs font-medium text-gray-500">Takes Medication</h4>
-                           <p className="mt-1 text-sm text-gray-900">
-                             {selectedUser.takesMedication ? 'Yes' : 'No'}
-                           </p>
-                         </div>
-                         {selectedUser.takesMedication && selectedUser.medicationDetails && (
-                           <div>
-                             <h4 className="text-xs font-medium text-gray-500">Medication Details</h4>
-                             <p className="mt-1 text-sm text-gray-900 break-words">
-                               {selectedUser.medicationDetails}
-                             </p>
-                           </div>
-                         )}
-                       </div>
-                     </div>
-                   </div>
-
-                   {/* Account Information */}
-                   <div className="bg-gray-50 rounded-lg p-4">
-                     <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                       <Shield className="h-4 w-4 mr-2" />
-                       Account Information
-                     </h4>
-                     <div className="space-y-2">
-                       <div className="flex items-center text-sm">
-                         <span className="font-medium text-gray-600 w-24">Role:</span>
-                         <span className="text-gray-900">{getRoleBadge(selectedUser.role)}</span>
-                       </div>
-                       <div className="flex items-center text-sm">
-                         <span className="font-medium text-gray-600 w-24">Joined:</span>
-                         <span className="text-gray-900">{formatDate(selectedUser.createdAt)}</span>
-                       </div>
-                       {selectedUser.status && (
-                         <div className="flex items-center text-sm">
-                           <span className="font-medium text-gray-600 w-24">Status:</span>
-                           <span className="text-gray-900">{getStatusBadge(selectedUser.status)}</span>
-                         </div>
-                       )}
-                     </div>
-                   </div>
-
-                   {/* Additional Information */}
-                   {selectedUser.avatar && (
-                     <div className="bg-gray-50 rounded-lg p-4">
-                       <h4 className="text-sm font-medium text-gray-700 mb-3">Profile Picture</h4>
-                       <img
-                         src={selectedUser.avatar}
-                         alt={selectedUser.fullName}
-                         className="h-32 w-32 rounded-lg object-cover"
-                       />
-                     </div>
-                   )}
-
-                   {selectedUser.governmentId && (
-                     <div className="bg-gray-50 rounded-lg p-4">
-                       <h4 className="text-sm font-medium text-gray-700 mb-3">Government ID</h4>
-                       {/\.pdf($|\?)/i.test(selectedUser.governmentId) ? (
-                         <div className="w-full h-96">
-                           <iframe src={selectedUser.governmentId} className="w-full h-full rounded" />
-                         </div>
-                       ) : (
-                         <img
-                           src={selectedUser.governmentId}
-                           alt="Government ID"
-                           className="max-h-96 rounded object-contain"
-                         />
-                       )}
-                       <div className="mt-2">
-                         <a href={selectedUser.governmentId} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
-                           Open original
-                         </a>
-                       </div>
-                     </div>
-                   )}
-                 </div>
-               ) : (
-                 <div className="text-center py-12">
-                   <p className="text-gray-500">No user data available</p>
-                 </div>
-               )}
-             </div>
-
-             {/* Modal Footer */}
-             <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
-               <button
-                 onClick={closeUserModal}
-                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-               >
-                 Close
-               </button>
-             </div>
-           </div>
-         </div>
-       )}
-     </div>
-   );
- }
+        </div>
+      )}
+    </div>
+  );
+}

@@ -5,6 +5,7 @@ import Sidebar from '../components/sidebar';
 import { fetchAdminProfile, updateAdminProfile } from '../service/service';
 import { fetchShopSettings, updateShopSettings } from '../service/shopSettingsService';
 import Swal from 'sweetalert2';
+import LoginPageSetting from '@/components/loginPageSetting';
 
 const daysOfWeek = [
   { id: 'monday', label: 'Monday' },
@@ -21,7 +22,7 @@ const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
-  
+
   // Admin profile state
   const [adminData, setAdminData] = useState({
     fullName: '',
@@ -29,7 +30,7 @@ const AdminSettings = () => {
     phone: '',
     role: 'admin'
   });
-  
+
   // Profile form state
   const [formData, setFormData] = useState({
     fullName: '',
@@ -39,7 +40,7 @@ const AdminSettings = () => {
     newPassword: '',
     confirmPassword: ''
   });
-  
+
   // Shop settings state
   const [shopSettings, setShopSettings] = useState({
     phone: '',
@@ -133,7 +134,7 @@ const AdminSettings = () => {
   const handleSaveShopSettings = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const response = await updateShopSettings(shopSettings, router);
       if (response.success) {
@@ -161,7 +162,7 @@ const AdminSettings = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate passwords if changing
     if (formData.newPassword) {
       if (formData.newPassword !== formData.confirmPassword) {
@@ -173,7 +174,7 @@ const AdminSettings = () => {
         });
         return;
       }
-      
+
       if (formData.newPassword.length < 6) {
         Swal.fire({
           title: 'Error!',
@@ -183,7 +184,7 @@ const AdminSettings = () => {
         });
         return;
       }
-      
+
       if (!formData.currentPassword) {
         Swal.fire({
           title: 'Error!',
@@ -224,7 +225,7 @@ const AdminSettings = () => {
       }
 
       const response = await updateAdminProfile(router, updateData);
-      
+
       if (response.success) {
         Swal.fire({
           title: 'Success!',
@@ -232,7 +233,7 @@ const AdminSettings = () => {
           icon: 'success',
           confirmButtonColor: '#10B981'
         });
-        
+
         // Reset password fields
         setFormData(prev => ({
           ...prev,
@@ -240,7 +241,7 @@ const AdminSettings = () => {
           newPassword: '',
           confirmPassword: ''
         }));
-        
+
         // Reload profile data
         loadAdminProfile();
       } else {
@@ -268,12 +269,12 @@ const AdminSettings = () => {
     <Layout>
       <div className="flex min-h-screen bg-gray-100">
         <Sidebar />
-        
+
         <div className="flex-1 ml-0 md:ml-20">
           <div className="p-8">
             {/* Header */}
             <h1 className="text-2xl font-semibold text-gray-800">Settings</h1>
-            
+
             {/* Tabs */}
             <div className="border-b border-gray-200 mb-6">
               <nav className="-mb-px flex space-x-8">
@@ -289,15 +290,22 @@ const AdminSettings = () => {
                 >
                   Shop Settings
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('page_setting')}
+                  className={`${activeTab === 'page_setting' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                >
+                  Page Settings
+                </button>
               </nav>
             </div>
-            
+
             {activeTab === 'profile' && (
               <div className="max-w-5xl">
                 {/* Profile Information Card */}
                 <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">Profile Information</h2>
-                  
+
                   <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Full Name */}
                     <div>
@@ -362,7 +370,7 @@ const AdminSettings = () => {
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 mb-4">Change Password</h3>
                       <p className="text-sm text-gray-600 mb-4">Leave blank if you don't want to change your password</p>
-                      
+
                       <div className="space-y-4">
                         {/* Current Password */}
                         <div>
@@ -450,7 +458,7 @@ const AdminSettings = () => {
             {activeTab === 'shop' && (
               <div className="bg-white shadow rounded-lg p-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-6">Shop Settings</h2>
-                
+
                 <form onSubmit={handleSaveShopSettings}>
                   <div className="mb-6">
                     <label htmlFor="shop-phone" className="block text-sm font-medium text-gray-700 mb-1">
@@ -466,7 +474,7 @@ const AdminSettings = () => {
                       required
                     />
                   </div>
-                  
+
                   <div className="mb-6">
                     <h3 className="text-md font-medium text-gray-900 mb-4">Shop Timings</h3>
                     <div className="space-y-4">
@@ -486,7 +494,7 @@ const AdminSettings = () => {
                               </label>
                             </div>
                           </div>
-                          
+
                           <div className="flex-1 flex space-x-2">
                             <div className="flex-1">
                               <label htmlFor={`opening-${day.day}`} className="block text-xs text-gray-500 mb-1">
@@ -521,7 +529,7 @@ const AdminSettings = () => {
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end">
                     <button
                       type="submit"
@@ -534,6 +542,10 @@ const AdminSettings = () => {
                 </form>
               </div>
             )}
+
+            {activeTab === 'page_setting' && <div>
+              <LoginPageSetting />
+            </div>}
           </div>
         </div>
       </div>
