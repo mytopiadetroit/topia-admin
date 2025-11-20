@@ -5,7 +5,7 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-// const ConstantsUrl = "http://localhost:5005/api/";
+//  const ConstantsUrl = "http://localhost:5000/api/";
 const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
@@ -290,13 +290,8 @@ const fetchUserById = async (id, router) => {
 };
 
 // Helper function to update user
-const updateUser = async (id, userData, router) => {
-  try {
-    return await Api('put', `users/${id}`, userData, router);
-  } catch (error) {
-    console.error('Error updating user:', error);
-    throw error;
-  }
+const updateUser = (id, userData, router) => {
+  return Api('put', `users/${id}`, userData, router);
 };
 
 // Helper function to delete user
@@ -478,7 +473,10 @@ const fetchSubscribers = async (router, params = {}) => {
 // Update user status (admin)
 const updateUserStatusAdmin = async (id, status, router) => {
   try {
-    return await Api('put', `users/${id}/status`, { status }, router);
+    return await Api('put', `users/${id}/status`, { 
+      status,
+      forceUpdateSession: true  // This will force the backend to update the user's session
+    }, router);
   } catch (error) {
     console.error('Error updating user status:', error);
     throw error;

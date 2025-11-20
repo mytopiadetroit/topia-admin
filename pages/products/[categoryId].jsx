@@ -14,18 +14,19 @@ import {
   Filter,
   Download,
   MoreHorizontal,
-  X,
   Mail,
   Phone,
   Calendar,
   User,
   Shield,
   ArrowLeft,
-  GripVertical
+  GripVertical,
+  X
 } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ApiFormData } from '../../service/service';
 
 // SortableItem component for drag and drop
 function SortableItem({ id, children }) {
@@ -249,7 +250,12 @@ export default function ProductsByCategory() {
     metaDescription: '',
     hasVariants: false,
     variants: [],
-    flavors: []
+    flavors: [],
+    allergenInfo: {
+      hasAllergens: false,
+      allergenImage: '',
+      tooltipText: 'This product may contain allergens. Please check with staff before consuming.'
+    }
   });
   const [errors, setErrors] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
@@ -270,7 +276,12 @@ export default function ProductsByCategory() {
     reviewTagIds: [],
     hasVariants: false,
     variants: [],
-    flavors: []
+    flavors: [],
+    allergenInfo: {
+      hasAllergens: false,
+      allergenImage: '',
+      tooltipText: 'This product may contain allergens. Please check with staff before consuming.'
+    }
   });
   const [editErrors, setEditErrors] = useState({});
   const [editKeepImages, setEditKeepImages] = useState([]);
@@ -379,6 +390,14 @@ export default function ProductsByCategory() {
     const product = products.find(p => p._id === productId);
     if (!product) return;
     setSelectedProduct(product);
+    
+    // Set default allergenInfo if not present
+    const defaultAllergenInfo = {
+      hasAllergens: false,
+      allergenImage: '',
+      tooltipText: 'This product may contain allergens.'
+    };
+
     setEditForm({
       id: product._id,
       name: product.name || '',
@@ -396,7 +415,13 @@ export default function ProductsByCategory() {
       reviewTagIds: (product.reviewTags || []).map(t => t._id),
       hasVariants: product.hasVariants || false,
       variants: product.variants || [],
-      flavors: product.flavors || []
+      flavors: product.flavors || [],
+      // Add allergenInfo with proper defaults
+      allergenInfo: {
+        hasAllergens: product.allergenInfo?.hasAllergens || false,
+        allergenImage: product.allergenInfo?.allergenImage || '',
+        tooltipText: product.allergenInfo?.tooltipText || 'This product may contain allergens.'
+      }
     });
     setEditKeepImages([...(product.images || [])]);
     setShowEditModal(true);
@@ -416,6 +441,134 @@ export default function ProductsByCategory() {
 
   const handleEditFileChange = (e) => {
     setEditForm(prev => ({ ...prev, imagesNew: Array.from(e.target.files || []) }));
+  };
+
+  const handleDeleteAllergenImage = (indexToRemove, formType) => {
+    if (formType === 'add') {
+      setForm(prev => {
+        const updatedImages = [...(prev.allergenInfo?.allergenImages || [])];
+        updatedImages.splice(indexToRemove, 1);
+        
+        return {
+          ...prev,
+          allergenInfo: {
+            ...prev.allergenInfo,
+            allergenImages: updatedImages,
+            // Update the main allergenImage if we're removing the first one
+            allergenImage: updatedImages[0] || ''
+          }
+        };
+      });
+    } else {
+      setEditForm(prev => {
+        const updatedImages = [...(prev.allergenInfo?.allergenImages || [])];
+        updatedImages.splice(indexToRemove, 1);
+        
+        return {
+          ...prev,
+          allergenInfo: {
+            ...prev.allergenInfo,
+            allergenImages: updatedImages,
+            // Update the main allergenImage if we're removing the first one
+            allergenImage: updatedImages[0] || ''
+          }
+        };
+      });
+    }
+  };
+
+  const handleAllergenImageUpload = async (e, formType) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Show loading message
+    toast.info(`Uploading ${files.length} allergen image(s)...`);
+    
+    try {
+      console.log(`Starting upload for ${files.length} allergen image(s)...`);
+      
+      // Upload each file one by one and collect their URLs
+      const uploadedImageUrls = [];
+      
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('images', file);
+        console.log('Uploading file:', file.name);
+
+        const response = await ApiFormData('post', 'products/test-upload', formData, router);
+        console.log('Upload response for', file.name, ':', response);
+        
+        const uploadedFile = response?.files?.[0];
+        if (!uploadedFile) {
+          console.error('No file data in response for:', file.name);
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+        
+        // Get the URL or path from the uploaded file
+        const imageUrl = uploadedFile.path || uploadedFile.location || uploadedFile.filename;
+        if (imageUrl) {
+          uploadedImageUrls.push(imageUrl);
+          console.log('Successfully uploaded:', file.name, 'URL:', imageUrl);
+        }
+      }
+
+      if (uploadedImageUrls.length === 0) {
+        throw new Error('No images were successfully uploaded');
+      }
+      
+      // Log the current form state before update
+      console.log('Form state before update (formType:', formType, '):', 
+        formType === 'add' ? form : editForm);
+      
+      // Create the updated allergen info with all uploaded image URLs
+      const currentAllergenInfo = formType === 'add' 
+        ? form.allergenInfo || {}
+        : editForm.allergenInfo || {};
+        
+      const existingImages = Array.isArray(currentAllergenInfo.allergenImages) 
+        ? [...currentAllergenInfo.allergenImages] 
+        : [];
+        
+      const updatedAllergenInfo = {
+        ...currentAllergenInfo,
+        // Keep existing images and add new ones
+        allergenImages: [...existingImages, ...uploadedImageUrls],
+        // For backward compatibility, keep the first image in the old field
+        allergenImage: uploadedImageUrls[0] || currentAllergenInfo.allergenImage,
+        hasAllergens: true,
+        tooltipText: currentAllergenInfo.tooltipText || 'This product may contain allergens.'
+      };
+
+      console.log('Updated allergen info:', updatedAllergenInfo);
+
+      // Update the appropriate form state
+      const updateData = {
+        ...(formType === 'add' ? form : editForm),
+        allergenInfo: updatedAllergenInfo
+      };
+
+      console.log('Full update data:', updateData);
+
+      if (formType === 'add') {
+        console.log('Updating add form with new image URL');
+        setForm(updateData);
+      } else {
+        console.log('Updating edit form with new image URL');
+        setEditForm(updateData);
+      }
+
+      // Show success message
+      toast.success('Allergen image uploaded successfully!');
+      
+      // Log the updated form data for debugging
+      console.log('Form state after update (formType:', formType, '):', 
+        formType === 'add' ? form : editForm);
+      console.log('Allergen images set. Total:', updatedAllergenInfo.allergenImages?.length || 0);
+    } catch (error) {
+      console.error('Error uploading allergen image:', error);
+      // Show error message
+      toast.error(error.response?.data?.message || 'Failed to upload allergen image');
+    }
   };
 
   const toggleKeepImage = (img) => {
@@ -539,6 +692,15 @@ export default function ProductsByCategory() {
       fd.append('variants', JSON.stringify(editForm.variants || []));
       fd.append('flavors', JSON.stringify(editForm.flavors || []));
       fd.append('short_description', editForm.short_description || '');
+      
+      // Add allergenInfo to edit form data if it exists
+      if (editForm.allergenInfo) {
+        fd.append('allergenInfo', JSON.stringify({
+          hasAllergens: Boolean(editForm.allergenInfo.hasAllergens),
+          allergenImage: editForm.allergenInfo.allergenImage || '',
+          tooltipText: editForm.allergenInfo.tooltipText || 'This product may contain allergens.'
+        }));
+      }
 
       const res = await updateProductApi(editForm.id, fd, router);
       if (res?.success) {
@@ -874,6 +1036,24 @@ export default function ProductsByCategory() {
       fd.append('variants', JSON.stringify(form.variants || []));
       fd.append('flavors', JSON.stringify(form.flavors || []));
       fd.append('short_description', form.short_description || '');
+      
+      // Add allergenInfo to form data if it exists
+      console.log('Form allergenInfo before submit:', form.allergenInfo);
+      const allergenInfoToSave = {
+        hasAllergens: Boolean(form.allergenInfo?.hasAllergens),
+        allergenImages: Array.isArray(form.allergenInfo?.allergenImages) 
+          ? form.allergenInfo.allergenImages 
+          : [],
+        allergenImage: form.allergenInfo?.allergenImage || '',
+        tooltipText: form.allergenInfo?.tooltipText || 'This product may contain allergens.'
+      };
+      
+      // If we have images in the array but no main image, use the first one
+      if (allergenInfoToSave.allergenImages.length > 0 && !allergenInfoToSave.allergenImage) {
+        allergenInfoToSave.allergenImage = allergenInfoToSave.allergenImages[0];
+      }
+      console.log('Saving allergenInfo:', allergenInfoToSave);
+      fd.append('allergenInfo', JSON.stringify(allergenInfoToSave));
       const res = await createProduct(fd, router);
       if (res?.success) {
         await Swal.fire({
@@ -1739,6 +1919,88 @@ export default function ProductsByCategory() {
                   )}
                 </div>
 
+                {/* Allergen Information */}
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-1">Allergen Information</label>
+                      <p className="text-xs text-gray-600">Add allergen details for this product</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.allergenInfo?.hasAllergens || false}
+                      onChange={(e) => {
+                        setForm(prev => ({
+                          ...prev,
+                          allergenInfo: {
+                            ...prev.allergenInfo,
+                            hasAllergens: e.target.checked
+                          }
+                        }));
+                      }}
+                      className="h-5 w-5 text-blue-600 border-gray-300 rounded"
+                    />
+                  </div>
+
+                  {form.allergenInfo?.hasAllergens && (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">Allergen Images</label>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => handleAllergenImageUpload(e, 'add')}
+                          className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                     {form.allergenInfo?.allergenImages?.length > 0 && (
+  <div className="mt-4">
+    <p className="text-sm text-gray-600 mb-2">Uploaded Images:</p>
+    <div className="flex flex-wrap gap-3">
+      {form.allergenInfo.allergenImages.map((img, index) => (
+        <div key={index} className="relative w-20 h-20 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => handleDeleteAllergenImage(index, 'add')}
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600 z-10"
+            title="Remove image"
+          >
+            ×
+          </button>
+          <img 
+            src={img} 
+            alt={`Allergen ${index + 1}`} 
+            className="w-full h-full object-cover rounded-lg border border-gray-200"
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">Tooltip Text</label>
+                        <input
+                          type="text"
+                          value={form.allergenInfo?.tooltipText || ''}
+                          onChange={(e) => {
+                            setForm(prev => ({
+                              ...prev,
+                              allergenInfo: {
+                                ...prev.allergenInfo,
+                                tooltipText: e.target.value
+                              }
+                            }));
+                          }}
+                          placeholder="e.g., Contains nuts and dairy"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Submit */}
                 <div className="flex justify-end space-x-3 pt-2">
                   <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
@@ -1940,6 +2202,88 @@ export default function ProductsByCategory() {
                     </div>
                   </div>
                 )}
+
+                {/* Allergen Information */}
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900 mb-1">Allergen Information</label>
+                      <p className="text-xs text-gray-600">Add allergen details for this product</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editForm.allergenInfo?.hasAllergens || false}
+                      onChange={(e) => {
+                        setEditForm(prev => ({
+                          ...prev,
+                          allergenInfo: {
+                            ...prev.allergenInfo,
+                            hasAllergens: e.target.checked
+                          }
+                        }));
+                      }}
+                      className="h-5 w-5 text-blue-600 border-gray-300 rounded"
+                    />
+                  </div>
+
+                  {editForm.allergenInfo?.hasAllergens && (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">Allergen Images</label>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => handleAllergenImageUpload(e, 'edit')}
+                          className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+{editForm.allergenInfo?.allergenImages?.length > 0 && (
+  <div className="mt-4">
+    <p className="text-sm text-gray-600 mb-2">Uploaded Images:</p>
+    <div className="flex flex-wrap gap-3">
+      {editForm.allergenInfo.allergenImages.map((img, index) => (
+        <div key={index} className="relative w-20 h-20 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => handleDeleteAllergenImage(index, 'edit')}
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600 z-10"
+            title="Remove image"
+          >
+            ×
+          </button>
+          <img 
+            src={img} 
+            alt={`Allergen ${index + 1}`} 
+            className="w-full h-full object-cover rounded-lg border border-gray-200"
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">Tooltip Text</label>
+                        <input
+                          type="text"
+                          value={editForm.allergenInfo?.tooltipText || ''}
+                          onChange={(e) => {
+                            setEditForm(prev => ({
+                              ...prev,
+                              allergenInfo: {
+                                ...prev.allergenInfo,
+                                tooltipText: e.target.value
+                              }
+                            }));
+                          }}
+                          placeholder="e.g., Contains nuts and dairy"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Flavors Section (Optional) */}
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">

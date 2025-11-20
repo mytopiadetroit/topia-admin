@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../components/sidebar';
-import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin } from '../service/service';
+import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin, updateUser } from '../service/service';
 import Swal from 'sweetalert2';
 import {
   Users,
@@ -18,7 +18,9 @@ import {
   Phone,
   Calendar,
   User,
-  Shield
+  Shield,
+  Pencil,
+  UserCircle
 } from 'lucide-react';
 
 export default function UsersPage() {
@@ -41,6 +43,19 @@ export default function UsersPage() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [searchInput, setSearchInput] = useState('');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    role: 'user',
+    status: 'pending',
+    birthday: {
+      day: '',
+      month: '',
+      year: ''
+    }
+  });
 
   const router = useRouter();
 
@@ -177,10 +192,24 @@ export default function UsersPage() {
     try {
       setUserModalLoading(true);
       setShowUserModal(true);
+      setIsEditMode(false);
 
       const response = await fetchUserById(userId, router);
       if (response.success) {
         setSelectedUser(response.data);
+        // Initialize form data with user data including birthday
+        setFormData({
+          fullName: response.data.fullName || '',
+          email: response.data.email || '',
+          phone: response.data.phone || '',
+          role: response.data.role || 'user',
+          status: response.data.status || 'pending',
+          birthday: response.data.birthday || {
+            day: '',
+            month: '',
+            year: ''
+          }
+        });
       } else {
         toast.error('Failed to load user details');
         setShowUserModal(false);
@@ -197,6 +226,104 @@ export default function UsersPage() {
   const closeUserModal = () => {
     setShowUserModal(false);
     setSelectedUser(null);
+    setIsEditMode(false);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleDateChange = (e) => {
+    const { value } = e.target;
+    if (value) {
+      const date = new Date(value);
+      setFormData(prev => ({
+        ...prev,
+        birthday: {
+          day: date.getDate(),
+          month: date.getMonth() + 1, // Months are 0-indexed
+          year: date.getFullYear()
+        }
+      }));
+    }
+  };
+
+  const handleSaveUser = async () => {
+    if (!selectedUser?._id) return;
+    
+    try {
+      setUserModalLoading(true);
+      
+      // Prepare the data to be sent
+      const updateData = {
+        ...formData,
+        // Include the birthday data in the correct format
+        birthday: formData.birthday
+      };
+      
+      // Use the updateUser service function
+      const response = await updateUser(selectedUser._id, updateData, router);
+      
+      if (response.success) {
+        // Show SweetAlert2 confirmation
+        await Swal.fire({
+          title: 'Success!',
+          text: 'User profile has been updated successfully.',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        
+        toast.success('User updated successfully');
+        setSelectedUser(response.data);
+        setIsEditMode(false);
+        
+        // Refresh users list
+        const usersResponse = await fetchAllUsers(router, {
+          page,
+          limit: 10,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+          search: searchTerm
+        });
+        
+        if (usersResponse.success) {
+          setUsers(usersResponse.data || []);
+          if (usersResponse.meta) {
+            setTotalPages(usersResponse.meta.totalPages || 1);
+          }
+        }
+      } else {
+        throw new Error(response.message || 'Failed to update user');
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      // Check if this is a network error or API error
+      if (error.message.includes('Network Error')) {
+        toast.error('Cannot connect to the server. Please check your connection.');
+      } else if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+        console.error('Error response headers:', error.response.headers);
+        toast.error(error.response.data?.message || 'Error updating user');
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('Error request:', error.request);
+        toast.error('No response from server. Please try again.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error message:', error.message);
+        toast.error(error.message || 'Error updating user');
+      }
+    } finally {
+      setUserModalLoading(false);
+    }
   };
 
   // Status filter options
@@ -386,7 +513,12 @@ export default function UsersPage() {
                     setSearchInput(e.target.value); // Update local state immediately
                     handleSearch(e); // Debounced search
                   }}
-                  onKeyPress={(e) => e.key === 'Enter' && loadUsers()}
+                  onKeyPress={(e) => e.key === 'Enter' && fetchAllUsers(router, {
+                    page,
+                    limit: 10,
+                    status: filterStatus === 'all' ? undefined : filterStatus,
+                    search: searchInput
+                  })}
                 />
               </div>
 
@@ -539,20 +671,94 @@ export default function UsersPage() {
         </div>
 
         {/* Pagination inside table area */}
-        <div className="px-4 py-3 bg-white border-t border-gray-200 flex items-center justify-between">
-          <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
-          <div className="space-x-2">
+        <div className="px-4 py-3 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-sm text-gray-600">
+            Showing page {page} of {totalPages}
+          </div>
+          
+          {/* Page selection dropdown for mobile */}
+          <div className="sm:hidden w-full">
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-sm text-gray-600">Go to page:</span>
+              <select
+                value={page}
+                onChange={(e) => setPage(Number(e.target.value))}
+                className="block w-20 px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <option key={pageNum} value={pageNum}>
+                    {pageNum}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className={`px-3 py-2 rounded border ${page === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 rounded border ${page === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
             >
               Previous
             </button>
+            
+            {/* Page numbers - only show on larger screens */}
+            <div className="hidden sm:flex items-center space-x-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                // Show first 2 pages, current page, and last 2 pages
+                let pageNum;
+                if (page <= 3) {
+                  pageNum = i + 1;
+                } else if (page >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = page - 2 + i;
+                }
+                
+                if (pageNum > 0 && pageNum <= totalPages) {
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`w-8 h-8 flex items-center justify-center rounded ${page === pageNum
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                }
+                return null;
+              })}
+              
+              {/* Page dropdown for desktop */}
+              {totalPages > 5 && (
+                <div className="relative ml-1">
+                  <select
+                    value={page}
+                    onChange={(e) => setPage(Number(e.target.value))}
+                    className="appearance-none pl-2 pr-8 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <option key={pageNum} value={pageNum}>
+                        {pageNum}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className={`px-3 py-2 rounded border ${page === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+              className={`px-3 py-1.5 rounded border ${page === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
             >
               Next
             </button>
@@ -566,13 +772,29 @@ export default function UsersPage() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
-              <button
-                onClick={closeUserModal}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <X className="h-6 w-6" />
-              </button>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {isEditMode ? 'Edit User' : 'User Details'}
+              </h2>
+              <div className="flex items-center space-x-2">
+                {!isEditMode && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={() => setIsEditMode(true)}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Edit User
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-gray-500"
+                  onClick={closeUserModal}
+                >
+                  <span className="sr-only">Close</span>
+                  <X className="h-6 w-6" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             {/* Modal Content */}
@@ -629,24 +851,87 @@ export default function UsersPage() {
                     </div>
                   </div>
 
-                  {/* Personal Information */}
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  {/* User Info */}
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
                     <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
-                      <User className="h-4 w-4 mr-2" />
-                      Personal Information
+                      <UserCircle className="h-4 w-4 mr-2" />
+                      Basic Information
                     </h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm">
-                        <span className="font-medium text-gray-600 w-24">Full Name:</span>
-                        <span className="text-gray-900">{selectedUser.fullName}</span>
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium text-gray-600 w-20">Name:</label>
+                        {isEditMode ? (
+                          <input
+                            type="text"
+                            name="fullName"
+                            value={formData.fullName}
+                            onChange={handleInputChange}
+                            className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <span className="text-gray-900 ml-2">{selectedUser.fullName}</span>
+                        )}
                       </div>
-                      <div className="flex items-center text-sm">
-                        <span className="font-medium text-gray-600 w-24">Birthday:</span>
-                        <span className="text-gray-900">{formatBirthday(selectedUser.birthday)}</span>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium text-gray-600 w-20">Email:</label>
+                        {isEditMode ? (
+                          <input
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <span className="text-gray-900 ml-2">{selectedUser.email}</span>
+                        )}
                       </div>
-                      <div className="flex items-center text-sm">
-                        <span className="font-medium text-gray-600 w-24">How did you hear:</span>
-                        <span className="text-gray-900">{selectedUser.howDidYouHear || 'Not provided'}</span>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium text-gray-600 w-20">Phone:</label>
+                        {isEditMode ? (
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                            className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        ) : (
+                          <span className="text-gray-900 ml-2">{selectedUser.phone || 'N/A'}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium text-gray-600 w-20">Role:</label>
+                        {isEditMode ? (
+                          <select
+                            name="role"
+                            value={formData.role}
+                            onChange={handleInputChange}
+                            className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-900 ml-2">{getRoleBadge(selectedUser.role)}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium text-gray-600 w-20">Status:</label>
+                        {isEditMode ? (
+                          <select
+                            name="status"
+                            value={formData.status}
+                            onChange={handleInputChange}
+                            className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="verified">Verified</option>
+                            <option value="suspend">Suspended</option>
+                          </select>
+                        ) : (
+                          <span className="text-gray-900 ml-2">{getStatusBadge(selectedUser.status)}</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -700,9 +985,22 @@ export default function UsersPage() {
                         <span className="font-medium text-gray-600 w-24">Role:</span>
                         <span className="text-gray-900">{getRoleBadge(selectedUser.role)}</span>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <span className="font-medium text-gray-600 w-24">Joined:</span>
-                        <span className="text-gray-900">{formatDate(selectedUser.createdAt)}</span>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium text-gray-600 w-24">Birthday:</label>
+                        {isEditMode ? (
+                          <div className="flex space-x-2">
+                            <input
+                              type="date"
+                              value={formData.birthday && formData.birthday.year 
+                                ? `${formData.birthday.year}-${String(formData.birthday.month).padStart(2, '0')}-${String(formData.birthday.day).padStart(2, '0')}`
+                                : ''}
+                              onChange={handleDateChange}
+                              className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-gray-900 ml-2">{formatBirthday(selectedUser.birthday)}</span>
+                        )}
                       </div>
                       {selectedUser.status && (
                         <div className="flex items-center text-sm">
@@ -756,12 +1054,33 @@ export default function UsersPage() {
 
             {/* Modal Footer */}
             <div className="flex justify-end space-x-3 p-6 border-t border-gray-200">
-              <button
-                onClick={closeUserModal}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                Close
-              </button>
+              {isEditMode ? (
+                <>
+                  <button
+                    type="button"
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    onClick={() => setIsEditMode(false)}
+                    disabled={userModalLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    onClick={handleSaveUser}
+                    disabled={userModalLoading}
+                  >
+                    {userModalLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={closeUserModal}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>
