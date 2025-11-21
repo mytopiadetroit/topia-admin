@@ -40,6 +40,8 @@ export default function UsersPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [selectAll, setSelectAll] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [searchInput, setSearchInput] = useState('');
@@ -331,7 +333,8 @@ export default function UsersPage() {
     { value: 'all', label: 'All Status' },
     { value: 'pending', label: 'Pending' },
     { value: 'verified', label: 'Verified' },
-    { value: 'suspend', label: 'Suspended' }
+    { value: 'suspend', label: 'Suspended' },
+    { value: 'incomplete', label: 'Incomplete' }
   ];
 
   const formatDate = (dateString) => {
@@ -359,7 +362,8 @@ export default function UsersPage() {
     const statusColors = {
       pending: 'bg-yellow-100 text-yellow-800',
       suspend: 'bg-red-100 text-red-800',
-      verified: 'bg-green-100 text-green-800'
+      verified: 'bg-green-100 text-green-800',
+      incomplete: 'bg-purple-100 text-purple-800'
     };
     const label = status || 'pending';
     return (
@@ -367,6 +371,93 @@ export default function UsersPage() {
         {label}
       </span>
     );
+  };
+
+  // Toggle select/deselect all users
+  const toggleSelectAll = () => {
+    if (selectAll) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(users.map(user => user._id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  // Toggle selection for a single user
+  const toggleUserSelection = (userId) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  // Update status for multiple users
+  const handleBulkStatusUpdate = async () => {
+    if (!bulkStatus || selectedUsers.length === 0) return;
+
+    try {
+      const result = await Swal.fire({
+        title: 'Confirm Status Update',
+        text: `Are you sure you want to update status for ${selectedUsers.length} user(s) to ${bulkStatus}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, update all!',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (result.isConfirmed) {
+        const updatePromises = selectedUsers.map(userId => 
+          updateUserStatusAdmin(userId, bulkStatus, router)
+        );
+        
+        const results = await Promise.all(updatePromises);
+        const successCount = results.filter(res => res?.success).length;
+        
+        if (successCount > 0) {
+          await Swal.fire({
+            title: 'Success!',
+            text: `Updated status for ${successCount} user(s) successfully.`,
+            icon: 'success',
+            confirmButtonColor: '#3085d6',
+            timer: 2000,
+            timerProgressBar: true
+          });
+          
+          // Refresh the users list
+          const response = await fetchAllUsers(router, {
+            page,
+            limit: 10,
+            status: filterStatus === 'all' ? undefined : filterStatus,
+            search: searchTerm
+          });
+
+          if (response.success) {
+            setUsers(response.data || []);
+            if (response.meta) {
+              setTotalPages(response.meta.totalPages || 1);
+            }
+          }
+          
+          // Reset selection
+          setSelectedUsers([]);
+          setSelectAll(false);
+          setBulkStatus('');
+        } else {
+          throw new Error('Failed to update any users');
+        }
+      }
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      Swal.fire({
+        title: 'Error!',
+        text: 'Failed to update some or all users',
+        icon: 'error',
+        confirmButtonColor: '#3085d6'
+      });
+    }
   };
 
   const handleChangeStatus = async (userId, status) => {
@@ -498,6 +589,46 @@ export default function UsersPage() {
           </div>
         </div>
 
+        {/* Bulk Actions */}
+        {selectedUsers.length > 0 && (
+          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="text-sm text-blue-800">
+                {selectedUsers.length} user(s) selected
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <select
+                  value={bulkStatus}
+                  onChange={(e) => setBulkStatus(e.target.value)}
+                  className="block w-full sm:w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select status</option>
+                  <option value="verified">Mark as Verified</option>
+                  <option value="pending">Mark as Pending</option>
+                  <option value="suspend">Mark as Suspended</option>
+                  <option value="incomplete">Mark as Incomplete</option>
+                </select>
+                <button
+                  onClick={handleBulkStatusUpdate}
+                  disabled={!bulkStatus}
+                  className={`px-4 py-2 rounded-md text-sm font-medium ${bulkStatus ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'}`}
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedUsers([]);
+                    setSelectAll(false);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-center justify-between">
@@ -561,7 +692,15 @@ export default function UsersPage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectAll && users.length > 0}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                      />
+                      User
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contact
@@ -582,9 +721,15 @@ export default function UsersPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.map((user) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
+                  <tr key={user._id} className={`hover:bg-gray-50 ${selectedUsers.includes(user._id) ? 'bg-blue-50' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(user._id)}
+                          onChange={() => toggleUserSelection(user._id)}
+                          className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-3"
+                        />
                         <div className="flex-shrink-0 h-10 w-10">
                           {user.avatar ? (
                             <img
@@ -647,6 +792,7 @@ export default function UsersPage() {
                           <option value="pending">Pending</option>
                           <option value="suspend">Suspend</option>
                           <option value="verified">Verified</option>
+                          <option value="incomplete">Incomplete</option>
                         </select>
                       </div>
                     </td>

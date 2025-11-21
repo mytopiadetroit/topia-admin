@@ -21,6 +21,7 @@ import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogin
 import { fetchAllCategories } from '@/service/service';
 import { fetchAllProducts } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
+import BirthdayCard from '@/components/BirthdayCard';
 
 export default function Dashboard({ user, loader }) {
   const router = useRouter();
@@ -299,6 +300,11 @@ export default function Dashboard({ user, loader }) {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Middle Section - Birthday Notifications */}
+          <div className="mb-6">
+            <BirthdayCard users={users} />
           </div>
 
           {/* Bottom Section */}

@@ -254,7 +254,7 @@ export default function ProductsByCategory() {
     allergenInfo: {
       hasAllergens: false,
       allergenImage: '',
-      tooltipText: 'This product may contain allergens. Please check with staff before consuming.'
+      tooltipText: ''
     }
   });
   const [errors, setErrors] = useState({});
@@ -280,7 +280,7 @@ export default function ProductsByCategory() {
     allergenInfo: {
       hasAllergens: false,
       allergenImage: '',
-      tooltipText: 'This product may contain allergens. Please check with staff before consuming.'
+      tooltipText: ''
     }
   });
   const [editErrors, setEditErrors] = useState({});
@@ -395,7 +395,7 @@ export default function ProductsByCategory() {
     const defaultAllergenInfo = {
       hasAllergens: false,
       allergenImage: '',
-      tooltipText: 'This product may contain allergens.'
+      tooltipText: ''
     };
 
     setEditForm({
@@ -420,7 +420,7 @@ export default function ProductsByCategory() {
       allergenInfo: {
         hasAllergens: product.allergenInfo?.hasAllergens || false,
         allergenImage: product.allergenInfo?.allergenImage || '',
-        tooltipText: product.allergenInfo?.tooltipText || 'This product may contain allergens.'
+        tooltipText: product.allergenInfo?.tooltipText || ''
       }
     });
     setEditKeepImages([...(product.images || [])]);
@@ -536,7 +536,7 @@ export default function ProductsByCategory() {
         // For backward compatibility, keep the first image in the old field
         allergenImage: uploadedImageUrls[0] || currentAllergenInfo.allergenImage,
         hasAllergens: true,
-        tooltipText: currentAllergenInfo.tooltipText || 'This product may contain allergens.'
+        tooltipText: currentAllergenInfo.tooltipText || ''
       };
 
       console.log('Updated allergen info:', updatedAllergenInfo);
@@ -698,7 +698,7 @@ export default function ProductsByCategory() {
         fd.append('allergenInfo', JSON.stringify({
           hasAllergens: Boolean(editForm.allergenInfo.hasAllergens),
           allergenImage: editForm.allergenInfo.allergenImage || '',
-          tooltipText: editForm.allergenInfo.tooltipText || 'This product may contain allergens.'
+          tooltipText: editForm.allergenInfo.tooltipText
         }));
       }
 
@@ -1045,7 +1045,7 @@ export default function ProductsByCategory() {
           ? form.allergenInfo.allergenImages 
           : [],
         allergenImage: form.allergenInfo?.allergenImage || '',
-        tooltipText: form.allergenInfo?.tooltipText || 'This product may contain allergens.'
+        tooltipText: form.allergenInfo?.tooltipText 
       };
       
       // If we have images in the array but no main image, use the first one

@@ -41,9 +41,9 @@ export default function AdminOrders() {
   const updateOrderStatus = async (orderId, newStatus) => {
     const textMap = {
       pending: 'Set order to Pending?',
-      unfulfilled: 'Mark order as Unfulfilled? Reserved stock will be returned.',
       incomplete: 'Mark order as Incomplete? Reserved stock will be returned.',
-      fulfilled: 'Mark order as Fulfilled? Stock will remain deducted.'
+      fulfilled: 'Mark order as Fulfilled? Stock will remain deducted.',
+      cancelled: 'Cancel this order? Reserved stock will be returned.'
     };
     const confirm = await Swal.fire({
       title: 'Confirm Status Change',
@@ -106,9 +106,9 @@ export default function AdminOrders() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'unfulfilled': return 'bg-orange-100 text-orange-800';
       case 'fulfilled': return 'bg-green-100 text-green-800';
       case 'incomplete': return 'bg-red-100 text-red-800';
+      case 'cancelled': return 'bg-gray-200 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -173,9 +173,9 @@ export default function AdminOrders() {
             {[
               { key: 'all', label: 'All' },
               { key: 'pending', label: 'Pending' },
-              { key: 'unfulfilled', label: 'Unfulfilled' },
               { key: 'fulfilled', label: 'Fulfilled' },
-              { key: 'incomplete', label: 'Incomplete' }
+              { key: 'incomplete', label: 'Incomplete' },
+              { key: 'cancelled', label: 'Cancelled' }
             ].map(tab => (
               <button
                 key={tab.key}
@@ -264,9 +264,9 @@ export default function AdminOrders() {
                           className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-[#536690]"
                         >
                            <option value="pending">Pending</option>
-                           <option value="unfulfilled">Unfulfilled</option>
                            <option value="fulfilled">Fulfilled</option>
                            <option value="incomplete">Incomplete</option>
+                           <option value="cancelled">Cancel Order</option>
                         </select>
                         
                         <button

@@ -249,65 +249,60 @@ const RewardTasksManagement = () => {
     }
   };
 
-  const handleToggleHomepageSection = async (section) => {
-    try {
-      let response;
-      if (section === 'rewards') {
-        response = await toggleRewardsSection(router);
-      } else if (section === 'feedback') {
-        response = await toggleFeedbackSection(router);
-      } else {
-        toast.error('Invalid section');
-        return;
-      }
-
-      if (response.success) {
-        toast.success(response.message);
-        // Refresh the page to reflect changes
-        window.location.reload();
-      } else {
-        toast.error(response.message || `Failed to toggle ${section} section`);
-      }
-    } catch (error) {
-      console.error(`Error toggling ${section} section:`, error);
-      toast.error(`An error occurred while toggling ${section} section`);
-    }
-  };
-
   const handleShowHomepageSection = async (section) => {
     try {
-      const response = await updateHomepageSettings({
+      console.log(`🔄 Showing ${section} section...`);
+      const payload = {
         [`${section}SectionVisible`]: true
-      }, router);
+      };
+      console.log('📤 Sending payload:', payload);
+      
+      const response = await updateHomepageSettings(payload, router);
+      console.log('📥 Response:', response);
 
       if (response.success) {
         toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} section shown successfully`);
-        // Refresh the page to reflect changes
-        window.location.reload();
+        // Update local state instead of reloading
+        const newSettings = {
+          ...homepageSettings,
+          [`${section}SectionVisible`]: true
+        };
+        console.log('✅ Updating local state to:', newSettings);
+        setHomepageSettings(newSettings);
       } else {
         toast.error(response.message || `Failed to show ${section} section`);
       }
     } catch (error) {
-      console.error(`Error showing ${section} section:`, error);
+      console.error(`❌ Error showing ${section} section:`, error);
       toast.error(`An error occurred while showing ${section} section`);
     }
   };
 
   const handleHideHomepageSection = async (section) => {
     try {
-      const response = await updateHomepageSettings({
+      console.log(`🔄 Hiding ${section} section...`);
+      const payload = {
         [`${section}SectionVisible`]: false
-      }, router);
+      };
+      console.log('📤 Sending payload:', payload);
+      
+      const response = await updateHomepageSettings(payload, router);
+      console.log('📥 Response:', response);
 
       if (response.success) {
         toast.success(`${section.charAt(0).toUpperCase() + section.slice(1)} section hidden successfully`);
-        // Refresh the page to reflect changes
-        window.location.reload();
+        // Update local state instead of reloading
+        const newSettings = {
+          ...homepageSettings,
+          [`${section}SectionVisible`]: false
+        };
+        console.log('✅ Updating local state to:', newSettings);
+        setHomepageSettings(newSettings);
       } else {
         toast.error(response.message || `Failed to hide ${section} section`);
       }
     } catch (error) {
-      console.error(`Error hiding ${section} section:`, error);
+      console.error(`❌ Error hiding ${section} section:`, error);
       toast.error(`An error occurred while hiding ${section} section`);
     }
   };
