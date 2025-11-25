@@ -54,8 +54,9 @@ export default function LoginPage({ user, loader }) {
        
         if (response.user && response.user.role === 'admin') {
           
-          localStorage.setItem('adminDetail', JSON.stringify(response.user));
-          if (response.token) localStorage.setItem('token', response.token);
+          // Store temporarily for OTP page
+          localStorage.setItem('tempAdminDetail', JSON.stringify(response.user));
+          if (response.token) localStorage.setItem('tempAdminToken', response.token);
           
           // Show success toast message
           toast.success('OTP has been sent! Please verify to continue.', {

@@ -12,16 +12,16 @@ export default function OtpVerificationPage({ user, loader }) {
   const [userPhone, setUserPhone] = useState('');
 
   useEffect(() => {
-    // Get user details from localStorage
+    // Get user details from temporary storage
     if (typeof window !== 'undefined') {
-      const userDetail = localStorage.getItem('adminDetail');
+      const userDetail = localStorage.getItem('tempAdminDetail');
       if (userDetail) {
         const user = JSON.parse(userDetail);
         if (user.phone) {
           setUserPhone(user.phone);
         }
       } else {
-        // If no user details, redirect back to login
+        // If no temp data, redirect back to login
         router.push('/');
       }
     }
@@ -49,27 +49,37 @@ export default function OtpVerificationPage({ user, loader }) {
       }, router);
       
       if (response.success) {
-        // Store updated token if provided
-        if (response.token) {
-          localStorage.setItem('token', response.token);
+        if (response.token && response.user) {
+          console.log('OTP Response User:', response.user);
+          
+          // Clear temporary storage
+          localStorage.removeItem('tempAdminDetail');
+          localStorage.removeItem('tempAdminToken');
+          
+          // Clear any old tokens
+          localStorage.removeItem('token');
+          localStorage.removeItem('userDetail');
+          
+          // Store with proper admin keys
+          localStorage.setItem('adminToken', response.token);
+          localStorage.setItem('adminDetail', JSON.stringify(response.user));
+          
+          // Dispatch auth state changed event
+          document.dispatchEvent(new Event('auth-state-changed'));
+          
+          // Show success toast message
+          toast.success('Login successful!', {
+            position: "top-center",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+          
+          // Redirect to dashboard
+          router.push('/dashboard');
         }
-      if (response.user) {
-  console.log('OTP Response User:', response.user); 
-  localStorage.setItem('adminDetail', JSON.stringify(response.user));
-}
-        
-        // Show success toast message
-        toast.success('Login successful!', {
-          position: "top-center",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
-        
-        // Redirect to dashboard
-        router.push('/dashboard');
       } else {
         toast.error(response.message || 'OTP verification failed. Please try again.', {
           position: "top-center",

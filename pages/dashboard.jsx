@@ -63,8 +63,10 @@ export default function Dashboard({ user, loader }) {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('userDetail');
-    localStorage.removeItem('token');
+    localStorage.removeItem('adminDetail');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('userDetail'); // Remove old detail too
+    localStorage.removeItem('token'); // Remove old token too
     router.push('/');
   };
 

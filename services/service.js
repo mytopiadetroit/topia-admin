@@ -1,6 +1,6 @@
 import axios from "axios";
-//  const ConstantsUrl = "http://localhost:5000/api/";
-   const ConstantsUrl = "https://api.mypsyguide.io/api/";
+  // const ConstantsUrl = "http://localhost:5000/api/";
+    const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 // export const ConstantsUrl = "";
 
@@ -14,18 +14,19 @@ axios.interceptors.response.use(
       if (!isRedirecting) {
         isRedirecting = true;
 
-
+        // Clear all tokens
+        localStorage.removeItem("adminDetail");
+        localStorage.removeItem("adminToken");
         localStorage.removeItem("userDetail");
         localStorage.removeItem("token");
-
 
         window.dispatchEvent(new Event('storage'));
         document.dispatchEvent(new Event('auth-state-changed'));
 
         if (window.router && !window.router.pathname.includes("login")) {
-          window.router.push("/auth/login");
+          window.router.push("/");
         } else {
-          window.location.href = "/auth/login";
+          window.location.href = "/";
         }
 
         setTimeout(() => {
@@ -57,7 +58,9 @@ const handleTokenExpiration = (router) => {
   isRedirecting = true;
 
   try {
-    // Clear user data
+    // Clear all tokens
+    localStorage.removeItem("adminDetail");
+    localStorage.removeItem("adminToken");
     localStorage.removeItem("userDetail");
     localStorage.removeItem("token");
 
@@ -66,7 +69,7 @@ const handleTokenExpiration = (router) => {
 
     // Navigate to login page if not already there
     if (router && !router.pathname.includes("login")) {
-      router.push("/auth/login");
+      router.push("/");
     }
 
     setTimeout(() => {

@@ -5,7 +5,7 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-//  const ConstantsUrl = "http://localhost:5000/api/";
+  // const ConstantsUrl = "http://localhost:5000/api/";
  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
@@ -20,7 +20,7 @@ function Api(method, url, data, router, params) {
 
     let token = "";
     if (typeof window !== "undefined") {
-      token = localStorage?.getItem("token") || "";
+      token = localStorage?.getItem("adminToken") || localStorage?.getItem("token") || "";
     }
 
     axios({
@@ -60,7 +60,7 @@ function ApiFormData(method, url, data, router, params) {
 
     let token = "";
     if (typeof window !== "undefined") {
-      token = localStorage?.getItem("token") || "";
+      token = localStorage?.getItem("adminToken") || localStorage?.getItem("token") || "";
     }
 
     axios({
@@ -102,8 +102,8 @@ axios.interceptors.response.use(
         isRedirecting = true;
 
         if (typeof window !== "undefined") {
-          localStorage.removeItem("userDetail");
-          localStorage.removeItem("token");
+          localStorage.removeItem("adminDetail");
+          localStorage.removeItem("adminToken");
           window.location.href = "/";
           window.dispatchEvent(new Event('storage'));
           document.dispatchEvent(new Event('auth-state-changed'));
@@ -143,8 +143,8 @@ const handleTokenExpiration = (router) => {
 
   try {
     if (typeof window !== "undefined") {
-      localStorage.removeItem("userDetail");
-      localStorage.removeItem("token");
+      localStorage.removeItem("adminDetail");
+      localStorage.removeItem("adminToken");
 
       notifyAuthChange();
 

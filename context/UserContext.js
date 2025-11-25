@@ -20,8 +20,35 @@ export const UserProvider = ({ children }) => {
   useEffect(() => {
     const checkUserLoggedIn = () => {
       try {
-        const token = localStorage.getItem('token');
-        const userDetail = localStorage.getItem('userDetail');
+        let token = localStorage.getItem('adminToken');
+        let userDetail = localStorage.getItem('adminDetail');
+        
+        // MIGRATION: Check for old token key and migrate to new key (ONE TIME ONLY)
+        if (!token) {
+          const oldToken = localStorage.getItem('token');
+          const oldUserDetail = localStorage.getItem('userDetail');
+          
+          // Check if old data exists and user is admin
+          if (oldToken && oldUserDetail) {
+            try {
+              const userData = JSON.parse(oldUserDetail);
+              // Only migrate if user is admin
+              if (userData.role === 'admin') {
+                localStorage.setItem('adminToken', oldToken);
+                localStorage.setItem('adminDetail', oldUserDetail);
+                token = oldToken;
+                userDetail = oldUserDetail;
+                
+                // IMPORTANT: Delete old tokens after migration
+                localStorage.removeItem('token');
+                localStorage.removeItem('userDetail');
+                console.log('Migrated old admin token to new key and cleaned up old tokens');
+              }
+            } catch (e) {
+              console.error('Migration error:', e);
+            }
+          }
+        }
         
         if (token && userDetail) {
           setUser(JSON.parse(userDetail));
@@ -43,8 +70,10 @@ export const UserProvider = ({ children }) => {
     checkUserLoggedIn();
     
     // Listen for storage events (when localStorage changes in other tabs)
-    const handleStorageChange = () => {
-      checkUserLoggedIn();
+    const handleStorageChange = (event) => {
+      if (event.key === 'adminToken' || event.key === 'adminDetail' || !event.key) {
+        checkUserLoggedIn();
+      }
     };
     
     // Listen for custom auth state changed event
@@ -66,9 +95,13 @@ export const UserProvider = ({ children }) => {
   // Login function
   const login = (userData, token) => {
     try {
-      // Save to localStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('userDetail', JSON.stringify(userData));
+      // Clear any old tokens first
+      localStorage.removeItem('token');
+      localStorage.removeItem('userDetail');
+      
+      // Save to localStorage with admin-specific keys
+      localStorage.setItem('adminToken', token);
+      localStorage.setItem('adminDetail', JSON.stringify(userData));
       
       // Update state
       setUser(userData);
@@ -87,7 +120,11 @@ export const UserProvider = ({ children }) => {
   // Logout function
   const logout = () => {
     try {
-      // Clear localStorage
+      // Clear localStorage with admin-specific keys
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminDetail');
+      
+      // Also remove old tokens to prevent re-migration
       localStorage.removeItem('token');
       localStorage.removeItem('userDetail');
       
@@ -99,7 +136,7 @@ export const UserProvider = ({ children }) => {
       document.dispatchEvent(new Event('auth-state-changed'));
       
       // Redirect to login page
-      router.push('/auth/login');
+      router.push('/');
       
       return true;
     } catch (error) {
@@ -113,8 +150,8 @@ export const UserProvider = ({ children }) => {
     try {
       const updatedUser = { ...user, ...newUserData };
       
-      // Update localStorage
-      localStorage.setItem('userDetail', JSON.stringify(updatedUser));
+      // Update localStorage with admin-specific key
+      localStorage.setItem('adminDetail', JSON.stringify(updatedUser));
       
       // Update state
       setUser(updatedUser);

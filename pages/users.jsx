@@ -712,6 +712,9 @@ export default function UsersPage() {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rewards
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -764,6 +767,16 @@ export default function UsersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(user.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <svg className="h-4 w-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm font-medium text-green-600">
+                          ${user.rewardPoints || 0}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(user.createdAt)}
@@ -1082,7 +1095,7 @@ export default function UsersPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="grid grid-cols-3 gap-4 mt-6">
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Account Created</h3>
                       <p className="mt-1 text-sm text-gray-900">
@@ -1094,6 +1107,17 @@ export default function UsersPage() {
                       <div className="mt-1">
                         {getStatusBadge(selectedUser.status)}
                       </div>
+                    </div>
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                      <h3 className="text-xs font-medium text-green-700 uppercase tracking-wider flex items-center">
+                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Reward Points
+                      </h3>
+                      <p className="mt-1 text-2xl font-bold text-green-600">
+                        ${selectedUser.rewardPoints || 0}
+                      </p>
                     </div>
                   </div>
 

@@ -82,6 +82,10 @@ const RewardsManagement = () => {
       }, router);
       
       if (response.success) {
+        // Close the detail modal
+        setShowDetailModal(false);
+        setSelectedRequest(null);
+        
         // Show success message
         Swal.fire({
           title: 'Success!',

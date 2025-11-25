@@ -15,6 +15,7 @@ import {
   Star,
   BookOpen,
   Gift,
+  DollarSign,
   Settings,
   Image
 } from "lucide-react";
@@ -98,6 +99,9 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       setActiveCategory("");
     } else if (currentPath.includes("/rewards")) {
       setActiveModule("rewards");
+      setActiveCategory("");
+    } else if (currentPath.includes("/points-management")) {
+      setActiveModule("points");
       setActiveCategory("");
     } else if (currentPath.includes("/gallery")) {
       setActiveModule("gallery");
@@ -294,6 +298,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
               >
                 <Gift className={`h-5 w-5 ${activeModule === "rewards" ? "text-[#80A6F7]" : ""}`} />
                 {!collapsed && <span className="ml-2">Rewards</span>}
+              </button>
+            </Link>
+
+            <Link href="/points-management">
+              <button
+                className={getModuleClasses("points")}
+              >
+                <DollarSign className={`h-5 w-5 ${activeModule === "points" ? "text-[#80A6F7]" : ""}`} />
+                {!collapsed && <span className="ml-2">Points Management</span>}
               </button>
             </Link>
 
