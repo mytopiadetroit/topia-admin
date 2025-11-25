@@ -65,7 +65,7 @@ const PointsManagement = () => {
 
   const loadUsers = async (page = 1, search = '') => {
     try {
-      const response = await fetch(`http://localhost:5000/api/users?page=${page}&limit=40&search=${search}&status=verified`, {
+      const response = await fetch(`https://api.mypsyguide.io/api/users?page=${page}&limit=40&search=${search}&status=verified`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -93,7 +93,7 @@ const PointsManagement = () => {
 
   const loadRewardTasks = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/rewards/admin/tasks', {
+      const response = await fetch('https://api.mypsyguide.io/api/rewards/admin/tasks', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -109,7 +109,7 @@ const PointsManagement = () => {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/points/admin/stats', {
+      const response = await fetch('https://api.mypsyguide.io/api/points/admin/stats', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -135,8 +135,8 @@ const PointsManagement = () => {
       if (adjustmentFilters.userId) params.append('userId', adjustmentFilters.userId);
       if (adjustmentFilters.startDate) params.append('startDate', adjustmentFilters.startDate);
       if (adjustmentFilters.endDate) params.append('endDate', adjustmentFilters.endDate);
-      
-      const response = await fetch(`http://localhost:5000/api/points/admin/adjustments?${params}`, {
+
+      const response = await fetch(`https://api.mypsyguide.io/api/points/admin/adjustments?${params}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
@@ -264,7 +264,7 @@ const PointsManagement = () => {
 
     setAdjusting(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/points/admin/adjust/${selectedUser._id}`, {
+      const response = await fetch(`https://api.mypsyguide.io/api/points/admin/adjust/${selectedUser._id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

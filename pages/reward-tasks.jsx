@@ -54,7 +54,7 @@ const RewardTasksManagement = () => {
   const loadUsers = async (page = 1, search = '') => {
     try {
       setLoadingUsers(true);
-      const response = await fetch(`http://localhost:5000/api/users?page=${page}&limit=40&search=${search}&status=verified`, {
+      const response = await fetch(`https://api.mypsyguide.io/api/users?page=${page}&limit=40&search=${search}&status=verified`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         }
