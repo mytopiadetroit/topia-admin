@@ -5,7 +5,7 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-  // const ConstantsUrl = "http://localhost:5000/api/";
+  //  const ConstantsUrl = "http://localhost:5000/api/";
  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
@@ -715,6 +715,73 @@ const updateSettingImage = async (id, formData, router) => {
   }
 };
 
+const deleteSettingImage = async (id, router) => {
+  try {
+    return await Api('delete', `setting/admin/pageimage/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting setting image:', error);
+    throw error;
+  }
+};
+
+// Homepage Images Management (admin)
+const fetchAllHomepageImages = async (router, section) => {
+  try {
+    const url = section ? `homepage-images/admin/all?section=${section}` : 'homepage-images/admin/all';
+    return await Api('get', url, null, router);
+  } catch (error) {
+    console.error('Error fetching homepage images:', error);
+    throw error;
+  }
+};
+
+const uploadHomepageImage = async (formData, router) => {
+  try {
+    return await ApiFormData('post', 'homepage-images/admin/upload', formData, router);
+  } catch (error) {
+    console.error('Error uploading homepage image:', error);
+    throw error;
+  }
+};
+
+const updateHomepageImage = async (id, formData, router) => {
+  try {
+    return await ApiFormData('put', `homepage-images/admin/${id}`, formData, router);
+  } catch (error) {
+    console.error('Error updating homepage image:', error);
+    throw error;
+  }
+};
+
+const deleteHomepageImage = async (id, router) => {
+  try {
+    return await Api('delete', `homepage-images/admin/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting homepage image:', error);
+    throw error;
+  }
+};
+
+// Visitors Management (admin)
+const fetchAllVisitors = async (router, params = {}) => {
+  try {
+    const queryParams = new URLSearchParams(params).toString();
+    return await Api('get', `visitors/admin/all?${queryParams}`, null, router);
+  } catch (error) {
+    console.error('Error fetching visitors:', error);
+    throw error;
+  }
+};
+
+const deleteVisitor = async (id, router) => {
+  try {
+    return await Api('delete', `visitors/admin/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting visitor:', error);
+    throw error;
+  }
+};
+
 // Gallery Management helpers (admin)
 const fetchAllGalleryImages = async (router) => {
   try {
@@ -862,5 +929,12 @@ export {
   toggleFeedbackSection,
   fetchAllsettingImages,
   uploadSettingImage,
-  updateSettingImage
+  updateSettingImage,
+  deleteSettingImage,
+  fetchAllHomepageImages,
+  uploadHomepageImage,
+  updateHomepageImage,
+  deleteHomepageImage,
+  fetchAllVisitors,
+  deleteVisitor
 };

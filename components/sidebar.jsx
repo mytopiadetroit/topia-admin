@@ -82,6 +82,9 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
     } else if (currentPath.includes("/users")) {
       setActiveModule("users");
       setActiveCategory("");
+    } else if (currentPath.includes("/visitors")) {
+      setActiveModule("visitors");
+      setActiveCategory("");
     } else if (currentPath.includes("/admin/orders")) {
       setActiveModule("orders");
       setActiveCategory("");
@@ -244,6 +247,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
               >
                 <Users className={`h-5 w-5 ${activeModule === "users" ? "text-[#80A6F7]" : ""}`} />
                 {!collapsed && <span className="ml-2">Users</span>}
+              </button>
+            </Link>
+
+            <Link href="/visitors">
+              <button
+                className={getModuleClasses("visitors")}
+              >
+                <Users className={`h-5 w-5 ${activeModule === "visitors" ? "text-[#80A6F7]" : ""}`} />
+                {!collapsed && <span className="ml-2">Visitors</span>}
               </button>
             </Link>
 
