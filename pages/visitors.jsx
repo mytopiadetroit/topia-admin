@@ -20,7 +20,7 @@ const Visitors = () => {
   const [memberFilter, setMemberFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState({ total: 0, pages: 1 });
+  const [totalPages, setTotalPages] = useState(1);
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userModalLoading, setUserModalLoading] = useState(false);
@@ -34,7 +34,7 @@ const Visitors = () => {
       setLoading(true);
       const response = await fetchAllVisitors(router, {
         page: currentPage,
-        limit: 50,
+        limit: 20,
         search: searchTerm,
         memberFilter,
         date: dateFilter,
@@ -43,7 +43,7 @@ const Visitors = () => {
 
       if (response.success) {
         setVisitors(response.data);
-        setPagination(response.pagination);
+        setTotalPages(response.pagination?.pages || 1);
         setStatistics(response.statistics);
       }
     } catch (error) {
@@ -111,11 +111,12 @@ const Visitors = () => {
       
       if (response.ok) {
         const result = await response.json();
-        // Merge visitor data (visitCount) with user data
+        // Merge visitor data (visitCount, visits history) with user data
         const userData = {
           ...result.data,
           visitCount: visitor.visitCount || 0,
-          lastVisit: visitor.lastVisit
+          lastVisit: visitor.lastVisit,
+          visits: visitor.visits || [] // Include visit history
         };
         console.log('User data with visits:', userData);
         setSelectedUser(userData);
@@ -360,23 +361,95 @@ const Visitors = () => {
                   </div>
 
                   {/* Pagination */}
-                  {pagination.pages > 1 && (
-                    <div className="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
-                      <div className="text-sm text-gray-700">
-                        Showing page {pagination.page} of {pagination.pages}
+                  {totalPages > 1 && (
+                    <div className="px-4 py-3 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="text-sm text-gray-600">
+                        Showing page {currentPage} of {totalPages}
                       </div>
-                      <div className="flex gap-2">
+                      
+                      {/* Page selection dropdown for mobile */}
+                      <div className="sm:hidden w-full">
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="text-sm text-gray-600">Go to page:</span>
+                          <select
+                            value={currentPage}
+                            onChange={(e) => setCurrentPage(Number(e.target.value))}
+                            className="block w-20 px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                              <option key={pageNum} value={pageNum}>
+                                {pageNum}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
-                          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={`px-3 py-1.5 rounded border ${currentPage === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                         >
                           Previous
                         </button>
+                        
+                        {/* Page numbers - only show on larger screens */}
+                        <div className="hidden sm:flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                            // Show first 2 pages, current page, and last 2 pages
+                            let pageNum;
+                            if (currentPage <= 3) {
+                              pageNum = i + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNum = totalPages - 4 + i;
+                            } else {
+                              pageNum = currentPage - 2 + i;
+                            }
+                            
+                            if (pageNum > 0 && pageNum <= totalPages) {
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  className={`w-8 h-8 flex items-center justify-center rounded ${currentPage === pageNum
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            }
+                            return null;
+                          })}
+                          
+                          {/* Page dropdown for desktop */}
+                          {totalPages > 5 && (
+                            <div className="relative ml-1">
+                              <select
+                                value={currentPage}
+                                onChange={(e) => setCurrentPage(Number(e.target.value))}
+                                className="appearance-none pl-2 pr-8 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                                  <option key={pageNum} value={pageNum}>
+                                    {pageNum}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
                         <button
-                          onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
-                          disabled={currentPage === pagination.pages}
-                          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={currentPage === totalPages}
+                          className={`px-3 py-1.5 rounded border ${currentPage === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
                         >
                           Next
                         </button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../components/sidebar';
-import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin, updateUser } from '../service/service';
+import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin, updateUser, fetchUserNotes, createUserNote, updateUserNote, deleteUserNote, adminCheckInUser, fetchVisitorByUserId } from '../service/service';
 import Swal from 'sweetalert2';
 import {
   Users,
@@ -46,6 +46,11 @@ export default function UsersPage() {
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [notesText, setNotesText] = useState('');
+  const [userNotes, setUserNotes] = useState([]);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [hiddenVisits, setHiddenVisits] = useState([]); // Track hidden visits (UI only)
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -199,6 +204,29 @@ export default function UsersPage() {
       const response = await fetchUserById(userId, router);
       if (response.success) {
         setSelectedUser(response.data);
+        
+        // Fetch user notes
+        const notesResponse = await fetchUserNotes(userId, router);
+        if (notesResponse.success) {
+          setUserNotes(notesResponse.data || []);
+        }
+        
+        // Fetch visitor data to get visit history
+        try {
+          const visitorData = await fetchVisitorByUserId(userId, router);
+          if (visitorData.success && visitorData.data) {
+            // Add visit history to selected user
+            setSelectedUser(prev => ({
+              ...prev,
+              visitHistory: visitorData.data.visits || [],
+              visitCount: visitorData.data.visitCount || 0
+            }));
+          }
+        } catch (error) {
+          console.error('Error fetching visitor data:', error);
+          // It's okay if visitor record doesn't exist yet
+        }
+        
         // Initialize form data with user data including birthday
         setFormData({
           fullName: response.data.fullName || '',
@@ -229,6 +257,32 @@ export default function UsersPage() {
     setShowUserModal(false);
     setSelectedUser(null);
     setIsEditMode(false);
+    setIsEditingNotes(false);
+    setNotesText('');
+    setUserNotes([]);
+    setEditingNoteId(null);
+    setHiddenVisits([]); // Reset hidden visits when modal closes
+  };
+
+  const handleHideVisit = async (visitIndex) => {
+    const result = await Swal.fire({
+      title: 'Hide Visit from UI?',
+      html: `
+        <p>This will hide the visit from this view only.</p>
+        <p class="text-sm text-yellow-600 mt-2"><strong>Note:</strong> The visit data will NOT be deleted from the database. It will only be hidden from this UI to keep the display clean.</p>
+      `,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Yes, Hide It',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      setHiddenVisits(prev => [...prev, visitIndex]);
+      toast.success('Visit hidden from view');
+    }
   };
 
   const handleInputChange = (e) => {
@@ -254,13 +308,176 @@ export default function UsersPage() {
     }
   };
 
+  const handleSaveNote = async () => {
+    if (!selectedUser?._id || !notesText.trim()) return;
+    
+    try {
+      setUserModalLoading(true);
+      
+      let response;
+      if (editingNoteId) {
+        // Update existing note
+        response = await updateUserNote(editingNoteId, notesText, router);
+      } else {
+        // Create new note
+        response = await createUserNote(selectedUser._id, notesText, router);
+      }
+      
+      if (response.success) {
+        await Swal.fire({
+          title: 'Success!',
+          text: editingNoteId ? 'Note updated successfully.' : 'Note added successfully.',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        
+        // Refresh notes
+        const notesResponse = await fetchUserNotes(selectedUser._id, router);
+        if (notesResponse.success) {
+          setUserNotes(notesResponse.data || []);
+        }
+        
+        setIsEditingNotes(false);
+        setNotesText('');
+        setEditingNoteId(null);
+      } else {
+        throw new Error(response.message || 'Failed to save note');
+      }
+    } catch (error) {
+      console.error('Error saving note:', error);
+      toast.error(error.message || 'Error saving note');
+    } finally {
+      setUserModalLoading(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    const result = await Swal.fire({
+      title: 'Delete Note?',
+      text: 'This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#EF4444',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setUserModalLoading(true);
+      const response = await deleteUserNote(noteId, router);
+      
+      if (response.success) {
+        await Swal.fire({
+          title: 'Deleted!',
+          text: 'Note has been deleted.',
+          icon: 'success',
+          confirmButtonColor: '#10B981',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        
+        // Refresh notes
+        const notesResponse = await fetchUserNotes(selectedUser._id, router);
+        if (notesResponse.success) {
+          setUserNotes(notesResponse.data || []);
+        }
+      } else {
+        throw new Error(response.message || 'Failed to delete note');
+      }
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      toast.error(error.message || 'Error deleting note');
+    } finally {
+      setUserModalLoading(false);
+    }
+  };
+
+  const handleEditNote = (note) => {
+    setEditingNoteId(note._id);
+    setNotesText(note.note);
+    setIsEditingNotes(true);
+  };
+
+  const handleManualCheckIn = async (userId, userName) => {
+    const result = await Swal.fire({
+      title: 'Manual Check-In',
+      html: `
+        <p>Are you sure you want to check-in <strong>${userName}</strong>?</p>
+        <p class="text-sm text-gray-600 mt-2">This will increase their visit count by 1.</p>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Yes, Check-In',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setLoading(true);
+      const response = await adminCheckInUser(userId, router);
+      
+      if (response.success) {
+        await Swal.fire({
+          title: 'Success!',
+          text: `${userName} has been checked in successfully!`,
+          icon: 'success',
+          confirmButtonColor: '#10B981',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        
+        // Refresh user data if modal is open
+        if (showUserModal && selectedUser?._id === userId) {
+          const userResponse = await fetchUserById(userId, router);
+          if (userResponse.success) {
+            setSelectedUser(userResponse.data);
+            
+            // Refresh visitor data to get updated visit history
+            try {
+              const visitorData = await fetchVisitorByUserId(userId, router);
+              if (visitorData.success && visitorData.data) {
+                setSelectedUser(prev => ({
+                  ...prev,
+                  visitHistory: visitorData.data.visits || [],
+                  visitCount: visitorData.data.visitCount || 0
+                }));
+              }
+            } catch (error) {
+              console.error('Error fetching visitor data:', error);
+            }
+          }
+        }
+      } else {
+        throw new Error(response.message || 'Failed to check-in user');
+      }
+    } catch (error) {
+      console.error('Error checking in user:', error);
+      Swal.fire({
+        title: 'Error!',
+        text: error.message || 'Failed to check-in user',
+        icon: 'error',
+        confirmButtonColor: '#EF4444'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveUser = async () => {
     if (!selectedUser?._id) return;
     
     try {
       setUserModalLoading(true);
       
-      // Prepare the data to be sent
+      // Prepare the data to be sent (without notes)
       const updateData = {
         ...formData,
         // Include the birthday data in the correct format
@@ -657,7 +874,10 @@ export default function UsersPage() {
                 <select
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={filterRole}
-                  onChange={(e) => setFilterRole(e.target.value)}
+                  onChange={(e) => {
+                    setFilterRole(e.target.value);
+                    setPage(1); // Reset to page 1 when filter changes
+                  }}
                 >
                   <option value="all">All Roles</option>
                   <option value="admin">Admin</option>
@@ -669,7 +889,10 @@ export default function UsersPage() {
                 <select
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  onChange={(e) => {
+                    setFilterStatus(e.target.value);
+                    setPage(1); // Reset to page 1 when filter changes
+                  }}
                 >
                   {statusOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -753,7 +976,7 @@ export default function UsersPage() {
                             {user.fullName}
                           </div>
                           <div className="text-sm text-gray-500">
-                            ID: {user._id.slice(-8)}
+                            {user.phone}
                           </div>
                         </div>
                       </div>
@@ -792,8 +1015,8 @@ export default function UsersPage() {
                         </button>
                         <button
                           onClick={() => router.push(`/admin/order/${user._id}`)}
-                          className="text-blue-600 hover:text-blue-900 p-1 border-2 rounded-lg"
-                          title="View User"
+                          className="text-blue-600 hover:text-blue-900 p-1 border-2 rounded-lg px-2"
+                          title="View Orders"
                         >
                           Orders
                         </button>
@@ -935,15 +1158,27 @@ export default function UsersPage() {
                 {isEditMode ? 'Edit User' : 'User Details'}
               </h2>
               <div className="flex items-center space-x-2">
-                {!isEditMode && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    onClick={() => setIsEditMode(true)}
-                  >
-                    <Pencil className="h-3 w-3 mr-1" />
-                    Edit User
-                  </button>
+                {!isEditMode && selectedUser && (
+                  <>
+                    <button
+                      type="button"
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      onClick={() => handleManualCheckIn(selectedUser._id, selectedUser.fullName)}
+                    >
+                      <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Check-In
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      onClick={() => setIsEditMode(true)}
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      Edit User
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
@@ -1196,6 +1431,176 @@ export default function UsersPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Admin Notes Section */}
+                  <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                        <svg className="h-4 w-4 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Admin Notes ({userNotes.length})
+                      </h4>
+                      {!isEditingNotes && (
+                        <button
+                          onClick={() => {
+                            setIsEditingNotes(true);
+                            setEditingNoteId(null);
+                            setNotesText('');
+                          }}
+                          className="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                        >
+                          Add Note
+                        </button>
+                      )}
+                    </div>
+                    
+                    {isEditingNotes ? (
+                      <div className="mb-3">
+                        <textarea
+                          value={notesText}
+                          onChange={(e) => setNotesText(e.target.value)}
+                          rows={3}
+                          placeholder="Add notes about this customer (e.g., 'Gave 10% discount', 'Prescription missing', 'Check ID on next visit')"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-2"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleSaveNote}
+                            disabled={userModalLoading || !notesText.trim()}
+                            className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {userModalLoading ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Save Note')}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsEditingNotes(false);
+                              setNotesText('');
+                              setEditingNoteId(null);
+                            }}
+                            className="px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {userNotes.length > 0 ? (
+                        userNotes.map((note) => (
+                          <div key={note._id} className="bg-white p-3 rounded border border-yellow-200">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="text-xs text-gray-500">
+                                {new Date(note.createdAt).toLocaleString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleEditNote(note)}
+                                  className="text-blue-600 hover:text-blue-800 p-1"
+                                  title="Edit note"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteNote(note._id)}
+                                  className="text-red-600 hover:text-red-800 p-1"
+                                  title="Delete note"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.note}</p>
+                            {note.createdBy && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                By: {note.createdBy.fullName || note.createdBy.email}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-2">No notes added yet.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Visit History Section */}
+                  {selectedUser.visitHistory && selectedUser.visitHistory.length > 0 && (
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                          <svg className="h-4 w-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Visit History ({selectedUser.visitCount || 0} total visits)
+                        </h4>
+                        {hiddenVisits.length > 0 && (
+                          <button
+                            onClick={() => setHiddenVisits([])}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            Show All ({hiddenVisits.length} hidden)
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {selectedUser.visitHistory.slice().reverse().map((visit, index) => {
+                          // Skip if this visit is hidden
+                          if (hiddenVisits.includes(index)) return null;
+                          
+                          return (
+                            <div key={index} className="bg-white p-3 rounded border border-blue-200">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(visit.timestamp).toLocaleString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      })}
+                                    </span>
+                                    {visit.checkedInBy === 'admin' && (
+                                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                        Admin Check-In
+                                      </span>
+                                    )}
+                                    {visit.checkedInBy === 'self' && (
+                                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                        Self Check-In
+                                      </span>
+                                    )}
+                                  </div>
+                                  {visit.adminId && (
+                                    <p className="text-xs text-gray-600 mt-1">
+                                      By: {visit.adminId.fullName || visit.adminId.email}
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleHideVisit(index)}
+                                  className="text-gray-400 hover:text-red-600 p-1"
+                                  title="Hide from view (data will not be deleted)"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Additional Information */}
                   {selectedUser.avatar && (

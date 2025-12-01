@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 // import { toast } from 'react-toastify';
-import { fetchAllOrders, updateOrderStatusApi, deleteOrderApi,toast } from '../../service/service';
+import { fetchAllOrders, updateOrderStatusApi, deleteOrderApi, toast, fetchUserById } from '../../service/service';
 import Swal from 'sweetalert2';
 import Sidebar from '../../components/sidebar';
+import { User, ShoppingBag, X, Mail } from 'lucide-react';
 
 export default function AdminOrders() {
   const router = useRouter();
@@ -14,6 +15,11 @@ export default function AdminOrders() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
 
   useEffect(() => {
     fetchOrders();
@@ -111,6 +117,55 @@ export default function AdminOrders() {
       case 'cancelled': return 'bg-gray-200 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleViewUser = async (userId) => {
+    try {
+      setModalLoading(true);
+      setShowUserModal(true);
+      const response = await fetchUserById(userId, router);
+      if (response.success) {
+        setSelectedUser(response.data);
+      } else {
+        toast.error('Failed to load user details');
+        setShowUserModal(false);
+      }
+    } catch (error) {
+      console.error('Error loading user details:', error);
+      toast.error('Error loading user details');
+      setShowUserModal(false);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleViewOrder = (order) => {
+    setSelectedOrder(order);
+    setShowOrderModal(true);
+  };
+
+  const closeUserModal = () => {
+    setShowUserModal(false);
+    setSelectedUser(null);
+  };
+
+  const closeOrderModal = () => {
+    setShowOrderModal(false);
+    setSelectedOrder(null);
+  };
+
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      fulfilled: 'bg-green-100 text-green-800',
+      incomplete: 'bg-red-100 text-red-800',
+      cancelled: 'bg-gray-200 text-gray-800'
+    };
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
   };
 
   const filteredOrders = selectedStatus === 'all' 
@@ -228,19 +283,43 @@ export default function AdminOrders() {
                       </div>
                     </td>
                    <td className="px-6 py-4 whitespace-nowrap">
-  <div className="text-sm text-gray-900">
-    {order.user?.fullName || 'N/A'}
-  </div>
-  <div className="text-sm text-gray-500">
-    {order.user?.email || 'N/A'}
+  <div className="flex items-center space-x-2">
+    <div>
+      <div className="text-sm text-gray-900">
+        {order.user?.fullName || 'N/A'}
+      </div>
+      <div className="text-sm text-gray-500">
+        {order.user?.phone || 'N/A'}
+      </div>
+    </div>
+    {order.user?._id && (
+      <button
+        onClick={() => handleViewUser(order.user._id)}
+        className="text-blue-600 hover:text-blue-900 p-1"
+        title="View User Details"
+      >
+        <User className="h-4 w-4" />
+      </button>
+    )}
   </div>
 </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">
-                        {order.items.length} item(s)
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {order.items.map(item => item.name).join(', ')}
+                      <div className="flex items-center space-x-2">
+                        <div>
+                          <div className="text-sm text-gray-900">
+                            {order.items.length} item(s)
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {order.items.map(item => item.name).join(', ')}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleViewOrder(order)}
+                          className="text-blue-600 hover:text-blue-900 p-1"
+                          title="View Order Details"
+                        >
+                          <ShoppingBag className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -341,6 +420,196 @@ export default function AdminOrders() {
         </div>
         </div>
       </div>
+
+      {/* User Details Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
+              <button onClick={closeUserModal} className="text-gray-400 hover:text-gray-500">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              {modalLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : selectedUser ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    {selectedUser.avatar ? (
+                      <img className="h-16 w-16 rounded-full" src={selectedUser.avatar} alt={selectedUser.fullName} />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span className="text-blue-600 font-bold text-xl">{selectedUser.fullName?.charAt(0)?.toUpperCase()}</span>
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{selectedUser.fullName}</h3>
+                      <p className="text-sm text-gray-500">User ID: {selectedUser._id}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Contact Information
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-20">Email:</span>
+                        <span className="text-gray-900">{selectedUser.email}</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <span className="font-medium text-gray-600 w-20">Phone:</span>
+                        <span className="text-gray-900">{selectedUser.phone}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedUser.birthday && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Date of Birth</h4>
+                      <p className="text-sm text-gray-900">
+                        {selectedUser.birthday.day} {selectedUser.birthday.month} {selectedUser.birthday.year}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-xs font-medium text-gray-500 uppercase">Account Created</h3>
+                      <p className="mt-1 text-sm text-gray-900">
+                        {new Date(selectedUser.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-xs font-medium text-gray-500 uppercase">Status</h3>
+                      <p className="mt-1">{getStatusBadge(selectedUser.status)}</p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-xs font-medium text-gray-500 uppercase">Reward Points</h3>
+                      <p className="mt-1 text-2xl font-bold text-green-600">${selectedUser.rewardPoints || 0}</p>
+                    </div>
+                  </div>
+
+                  {selectedUser.governmentId && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Government ID</h4>
+                      <img
+                        src={selectedUser.governmentId}
+                        alt="Government ID"
+                        className="max-h-64 rounded object-contain"
+                      />
+                      <div className="mt-2">
+                        <a href={selectedUser.governmentId} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
+                          Open original
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500">No user data available</p>
+              )}
+            </div>
+            <div className="flex justify-end p-6 border-t border-gray-200">
+              <button onClick={closeUserModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Details Modal */}
+      {showOrderModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">Order Details</h2>
+              <button onClick={closeOrderModal} className="text-gray-400 hover:text-gray-500">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{selectedOrder.orderNumber}</h3>
+                    <p className="text-sm text-gray-500">{formatDate(selectedOrder.createdAt)}</p>
+                  </div>
+                  {getStatusBadge(selectedOrder.status)}
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Customer Information</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm">
+                      <span className="font-medium text-gray-600 w-24">Name:</span>
+                      <span className="text-gray-900">{selectedOrder.user?.fullName || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <span className="font-medium text-gray-600 w-24">Phone:</span>
+                      <span className="text-gray-900">{selectedOrder.user?.phone || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                      <span className="font-medium text-gray-600 w-24">Email:</span>
+                      <span className="text-gray-900">{selectedOrder.user?.email || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Order Items</h4>
+                  <div className="space-y-3">
+                    {selectedOrder.items.map((item, index) => (
+                      <div key={index} className="flex items-center space-x-4 bg-white p-3 rounded">
+                        {item.image && (
+                          <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{item.name}</p>
+                          <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">${(item.price * item.quantity).toFixed(2)}</p>
+                          <p className="text-sm text-gray-500">${item.price} each</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Order Summary</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="text-gray-900">${selectedOrder.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Tax:</span>
+                      <span className="text-gray-900">${selectedOrder.tax.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-semibold pt-2 border-t">
+                      <span className="text-gray-900">Total:</span>
+                      <span className="text-gray-900">${selectedOrder.totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end p-6 border-t border-gray-200">
+              <button onClick={closeOrderModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

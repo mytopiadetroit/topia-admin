@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-    // const ConstantsUrl = "http://localhost:5000/api/";
- const ConstantsUrl = "https://api.mypsyguide.io/api/";
+    //  const ConstantsUrl = "http://localhost:5000/api/";
+const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -641,6 +641,15 @@ const fetchLoginsByDate = async (router, startDate, endDate) => {
   }
 };
 
+const fetchPendingVerificationsCount = async (router) => {
+  try {
+    return await Api('get', 'users/admin/pending-verifications-count', null, router);
+  } catch (error) {
+    console.error('Error fetching pending verifications count:', error);
+    throw error;
+  }
+};
+
 // Reward Task Management helpers (admin)
 const fetchAllRewardTasks = async (router) => {
   try {
@@ -778,6 +787,33 @@ const deleteVisitor = async (id, router) => {
     return await Api('delete', `visitors/admin/${id}`, null, router);
   } catch (error) {
     console.error('Error deleting visitor:', error);
+    throw error;
+  }
+};
+
+const adminCheckInUser = async (userId, router) => {
+  try {
+    return await Api('post', `visitors/admin/checkin/${userId}`, null, router);
+  } catch (error) {
+    console.error('Error checking in user:', error);
+    throw error;
+  }
+};
+
+const fetchVisitorByPhone = async (phone, router) => {
+  try {
+    return await Api('get', 'visitors/admin/all', null, router, { search: phone });
+  } catch (error) {
+    console.error('Error fetching visitor by phone:', error);
+    throw error;
+  }
+};
+
+const fetchVisitorByUserId = async (userId, router) => {
+  try {
+    return await Api('get', `visitors/admin/user/${userId}`, null, router);
+  } catch (error) {
+    console.error('Error fetching visitor by user ID:', error);
     throw error;
   }
 };
@@ -936,5 +972,50 @@ export {
   updateHomepageImage,
   deleteHomepageImage,
   fetchAllVisitors,
-  deleteVisitor
+  deleteVisitor,
+  fetchUserNotes,
+  createUserNote,
+  updateUserNote,
+  deleteUserNote,
+  fetchPendingVerificationsCount,
+  adminCheckInUser,
+  fetchVisitorByPhone,
+  fetchVisitorByUserId
+};
+
+// User Notes Management helpers
+const fetchUserNotes = async (userId, router) => {
+  try {
+    return await Api('get', `user-notes/${userId}`, null, router);
+  } catch (error) {
+    console.error('Error fetching user notes:', error);
+    throw error;
+  }
+};
+
+const createUserNote = async (userId, note, router) => {
+  try {
+    return await Api('post', `user-notes/${userId}`, { note }, router);
+  } catch (error) {
+    console.error('Error creating user note:', error);
+    throw error;
+  }
+};
+
+const updateUserNote = async (noteId, note, router) => {
+  try {
+    return await Api('put', `user-notes/${noteId}`, { note }, router);
+  } catch (error) {
+    console.error('Error updating user note:', error);
+    throw error;
+  }
+};
+
+const deleteUserNote = async (noteId, router) => {
+  try {
+    return await Api('delete', `user-notes/${noteId}`, null, router);
+  } catch (error) {
+    console.error('Error deleting user note:', error);
+    throw error;
+  }
 };

@@ -17,7 +17,7 @@ import {
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 // import { useRouter } from 'next/router';
-import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate } from '@/service/service';
+import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount } from '@/service/service';
 import { fetchAllCategories } from '@/service/service';
 import { fetchAllProducts } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
@@ -32,6 +32,7 @@ export default function Dashboard({ user, loader }) {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [todayLogins, setTodayLogins] = useState(0);
+  const [pendingVerifications, setPendingVerifications] = useState(0);
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
   const [showLoginsModal, setShowLoginsModal] = useState(false);
   const [registrationsList, setRegistrationsList] = useState([]);
@@ -43,18 +44,20 @@ export default function Dashboard({ user, loader }) {
     const load = async () => {
       try {
         setLoading(true);
-        const [uRes, oRes, cRes, pRes, lRes] = await Promise.all([
-          fetchAllUsers(router, { page: 1, limit: 100 }),
+        const [uRes, oRes, cRes, pRes, lRes, pvRes] = await Promise.all([
+          fetchAllUsers(router, { page: 1, limit: 10000 }), // High limit for birthday calculations
           fetchAllOrders(router, { page: 1, limit: 100 }),
           fetchAllCategories(router),
           fetchAllProducts(router, { page: 1, limit: 100 }),
-          fetchTodayLogins(router)
+          fetchTodayLogins(router),
+          fetchPendingVerificationsCount(router)
         ]);
         if (uRes?.success) setUsers(uRes.data || []);
         if (oRes?.success) setOrders(oRes.data || []);
         if (cRes?.success) setCategories(cRes.data || []);
         if (pRes?.success) setProducts(pRes.data || []);
         if (lRes?.success) setTodayLogins(lRes.count || 0);
+        if (pvRes?.success) setPendingVerifications(pvRes.count || 0);
       } finally {
         setLoading(false);
       }
@@ -147,7 +150,7 @@ export default function Dashboard({ user, loader }) {
     }).length;
   }, [users]);
 
-  const pendingVerifications = useMemo(() => users.filter(u => (u.status || 'pending') === 'pending').length, [users]);
+  // Removed useMemo - now using state from API
 
   const stats = [
     {
