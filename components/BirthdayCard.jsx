@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gift, Calendar as CalendarIcon } from 'lucide-react';
+import { Gift, Calendar as CalendarIcon, Eye } from 'lucide-react';
 
 const monthNameToNumber = (monthName) => {
   if (!monthName) return null;
@@ -15,7 +15,7 @@ const monthNameToNumber = (monthName) => {
   return monthIndex !== -1 ? monthIndex + 1 : null;
 };
 
-const BirthdayItem = ({ user, isToday = false }) => {
+const BirthdayItem = ({ user, isToday = false, onViewUser }) => {
   const { fullName, birthday } = user;
   const age = birthday.year ? new Date().getFullYear() - parseInt(birthday.year) : 'N/A';
   
@@ -40,11 +40,11 @@ const BirthdayItem = ({ user, isToday = false }) => {
 
   return (
     <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow transition-shadow">
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-3 flex-1">
         <div className="p-2 rounded-full bg-pink-50 text-pink-500">
           <Gift size={18} />
         </div>
-        <div>
+        <div className="flex-1">
           <p className="font-medium text-gray-900">{fullName}</p>
           <div className="flex items-center text-sm text-gray-500">
             <CalendarIcon size={14} className="mr-1" />
@@ -52,16 +52,25 @@ const BirthdayItem = ({ user, isToday = false }) => {
           </div>
         </div>
       </div>
-      {isToday && (
-        <span className="px-2 py-1 text-xs font-medium rounded-full bg-pink-100 text-pink-800">
-          Today!
-        </span>
-      )}
+      <div className="flex items-center space-x-2">
+        {isToday && (
+          <span className="px-2 py-1 text-xs font-medium rounded-full bg-pink-100 text-pink-800">
+            Today!
+          </span>
+        )}
+        <button
+          onClick={() => onViewUser(user._id)}
+          className="p-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-colors"
+          title="View User Details"
+        >
+          <Eye size={16} />
+        </button>
+      </div>
     </div>
   );
 };
 
-const BirthdayCard = ({ users }) => {
+const BirthdayCard = ({ users, onViewUser }) => {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentDay = today.getDate();
@@ -160,7 +169,7 @@ const BirthdayCard = ({ users }) => {
             <h4 className="text-sm font-medium text-gray-700 mb-2">🎉 Celebrating Today</h4>
             <div className="space-y-2">
               {todaysBirthdays.map(user => (
-                <BirthdayItem key={user._id} user={user} isToday />
+                <BirthdayItem key={user._id} user={user} isToday onViewUser={onViewUser} />
               ))}
             </div>
           </div>
@@ -173,7 +182,7 @@ const BirthdayCard = ({ users }) => {
             </h4>
             <div className="space-y-2">
               {upcomingBirthdays.map(user => (
-                <BirthdayItem key={user._id} user={user} />
+                <BirthdayItem key={user._id} user={user} onViewUser={onViewUser} />
               ))}
             </div>
           </div>

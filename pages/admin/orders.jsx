@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 // import { toast } from 'react-toastify';
-import { fetchAllOrders, updateOrderStatusApi, deleteOrderApi, toast, fetchUserById } from '../../service/service';
+import { fetchAllOrders, updateOrderStatusApi, archiveOrderApi, toast, fetchUserById } from '../../service/service';
 import Swal from 'sweetalert2';
 import Sidebar from '../../components/sidebar';
 import { User, ShoppingBag, X, Mail } from 'lucide-react';
@@ -74,27 +74,31 @@ export default function AdminOrders() {
     }
   };
 
-  const deleteOrder = async (orderId) => {
+  const archiveOrder = async (orderId) => {
     const confirm = await Swal.fire({
-      title: 'Delete Order?',
-      text: 'This action cannot be undone.',
-      icon: 'warning',
+      title: 'Archive Order?',
+      html: `
+        <p>Are you sure you want to archive this order?</p>
+        <p class="text-sm text-gray-600 mt-2">The order data will be preserved and can be restored later if needed.</p>
+      `,
+      icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Yes, delete it',
+      confirmButtonColor: '#F59E0B',
+      confirmButtonText: 'Yes, archive it',
       cancelButtonText: 'Cancel'
     });
     if (!confirm.isConfirmed) return;
     try {
-      const response = await deleteOrderApi(orderId, router);
+      const response = await archiveOrderApi(orderId, router);
       if (response.success) {
-        await Swal.fire({ icon: 'success', title: 'Deleted', timer: 1200, showConfirmButton: false });
+        await Swal.fire({ icon: 'success', title: 'Archived', text: 'Order archived successfully', timer: 1200, showConfirmButton: false });
         fetchOrders();
       } else {
-        Swal.fire({ icon: 'error', title: 'Error', text: response.message || 'Failed to delete order' });
+        Swal.fire({ icon: 'error', title: 'Error', text: response.message || 'Failed to archive order' });
       }
     } catch (error) {
-      console.error('Error deleting order:', error);
-      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to delete order' });
+      console.error('Error archiving order:', error);
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to archive order' });
     }
   };
 
@@ -218,8 +222,21 @@ export default function AdminOrders() {
         <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Order Management</h1>
-          <p className="text-gray-600">View and manage all customer orders</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Order Management</h1>
+              <p className="text-gray-600">View and manage all customer orders</p>
+            </div>
+            <button
+              onClick={() => router.push('/archived-orders')}
+              className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+              View Archive
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -349,10 +366,10 @@ export default function AdminOrders() {
                         </select>
                         
                         <button
-                          onClick={() => deleteOrder(order._id)}
-                          className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                          onClick={() => archiveOrder(order._id)}
+                          className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
                         >
-                          Delete
+                          Archive
                         </button>
                       </div>
                     </td>

@@ -1,35 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { 
-  BarChart3, 
-  Package, 
-  Users, 
-  FileText, 
-  Grid3X3, 
   TrendingUp, 
   TrendingDown,
-  LogOut,
   X,
   Eye,
-  Calendar,
-  UserPlus,
-  LogIn
+  Mail
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 // import { useRouter } from 'next/router';
-import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount } from '@/service/service';
-import { fetchAllCategories } from '@/service/service';
-import { fetchAllProducts } from '@/service/service';
+import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
 import BirthdayCard from '@/components/BirthdayCard';
 
-export default function Dashboard({ user, loader }) {
+export default function Dashboard() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [todayLogins, setTodayLogins] = useState(0);
   const [pendingVerifications, setPendingVerifications] = useState(0);
@@ -39,22 +27,23 @@ export default function Dashboard({ user, loader }) {
   const [loginsList, setLoginsList] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userModalLoading, setUserModalLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const [uRes, oRes, cRes, pRes, lRes, pvRes] = await Promise.all([
+        const [uRes, oRes, pRes, lRes, pvRes] = await Promise.all([
           fetchAllUsers(router, { page: 1, limit: 10000 }), // High limit for birthday calculations
           fetchAllOrders(router, { page: 1, limit: 100 }),
-          fetchAllCategories(router),
           fetchAllProducts(router, { page: 1, limit: 100 }),
           fetchTodayLogins(router),
           fetchPendingVerificationsCount(router)
         ]);
         if (uRes?.success) setUsers(uRes.data || []);
         if (oRes?.success) setOrders(oRes.data || []);
-        if (cRes?.success) setCategories(cRes.data || []);
         if (pRes?.success) setProducts(pRes.data || []);
         if (lRes?.success) setTodayLogins(lRes.count || 0);
         if (pvRes?.success) setPendingVerifications(pvRes.count || 0);
@@ -65,12 +54,44 @@ export default function Dashboard({ user, loader }) {
     load();
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminDetail');
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('userDetail'); // Remove old detail too
-    localStorage.removeItem('token'); // Remove old token too
-    router.push('/');
+  const handleViewUser = async (userId) => {
+    try {
+      setUserModalLoading(true);
+      setShowUserModal(true);
+      const response = await fetchUserById(userId, router);
+      if (response.success) {
+        setSelectedUser(response.data);
+      } else {
+        toast.error('Failed to load user details');
+        setShowUserModal(false);
+      }
+    } catch (error) {
+      console.error('Error loading user details:', error);
+      toast.error('Error loading user details');
+      setShowUserModal(false);
+    } finally {
+      setUserModalLoading(false);
+    }
+  };
+
+  const closeUserModal = () => {
+    setShowUserModal(false);
+    setSelectedUser(null);
+  };
+
+  const getStatusBadge = (status) => {
+    const statusColors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      suspend: 'bg-red-100 text-red-800',
+      verified: 'bg-green-100 text-green-800',
+      incomplete: 'bg-purple-100 text-purple-800'
+    };
+    const label = status || 'pending';
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[label] || 'bg-gray-100 text-gray-800'}`}>
+        {label}
+      </span>
+    );
   };
 
   const handleViewRegistrations = async () => {
@@ -309,7 +330,7 @@ export default function Dashboard({ user, loader }) {
 
           {/* Middle Section - Birthday Notifications */}
           <div className="mb-6">
-            <BirthdayCard users={users} />
+            <BirthdayCard users={users} onViewUser={handleViewUser} />
           </div>
 
           {/* Bottom Section */}
@@ -397,6 +418,109 @@ export default function Dashboard({ user, loader }) {
           onTodayClick={handleViewLogins}
           formatDateTime={formatDateTime}
         />
+
+        {/* User Details Modal */}
+        {showUserModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
+                <button onClick={closeUserModal} className="text-gray-400 hover:text-gray-500">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="p-6">
+                {userModalLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : selectedUser ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-4">
+                      {selectedUser.avatar ? (
+                        <img className="h-16 w-16 rounded-full" src={selectedUser.avatar} alt={selectedUser.fullName} />
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-blue-600 font-bold text-xl">{selectedUser.fullName?.charAt(0)?.toUpperCase()}</span>
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{selectedUser.fullName}</h3>
+                        <p className="text-sm text-gray-500">User ID: {selectedUser._id}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                        <Mail className="h-4 w-4 mr-2" />
+                        Contact Information
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center text-sm">
+                          <span className="font-medium text-gray-600 w-20">Email:</span>
+                          <span className="text-gray-900">{selectedUser.email}</span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <span className="font-medium text-gray-600 w-20">Phone:</span>
+                          <span className="text-gray-900">{selectedUser.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedUser.birthday && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Date of Birth</h4>
+                        <p className="text-sm text-gray-900">
+                          {selectedUser.birthday.month}/{selectedUser.birthday.day}/{selectedUser.birthday.year}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-xs font-medium text-gray-500 uppercase">Account Created</h3>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {new Date(selectedUser.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-xs font-medium text-gray-500 uppercase">Status</h3>
+                        <p className="mt-1">{getStatusBadge(selectedUser.status)}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-xs font-medium text-gray-500 uppercase">Reward Points</h3>
+                        <p className="mt-1 text-2xl font-bold text-green-600">${selectedUser.rewardPoints || 0}</p>
+                      </div>
+                    </div>
+
+                    {selectedUser.governmentId && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Government ID</h4>
+                        <img
+                          src={selectedUser.governmentId}
+                          alt="Government ID"
+                          className="max-h-64 rounded object-contain"
+                        />
+                        <div className="mt-2">
+                          <a href={selectedUser.governmentId} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
+                            Open original
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500">No user data available</p>
+                )}
+              </div>
+              <div className="flex justify-end p-6 border-t border-gray-200">
+                <button onClick={closeUserModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import Sidebar from '../components/sidebar';
-import { fetchAllVisitors, deleteVisitor, toast } from '../service/service';
+import { fetchAllVisitors, archiveVisitor, toast } from '../service/service';
 import Swal from 'sweetalert2';
 import { Search, Users, UserCheck, UserX, Calendar } from 'lucide-react';
 
@@ -24,10 +24,62 @@ const Visitors = () => {
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userModalLoading, setUserModalLoading] = useState(false);
+  const [michiganTime, setMichiganTime] = useState('');
+  const [timeUntilReset, setTimeUntilReset] = useState('');
 
   useEffect(() => {
     loadVisitors();
   }, [searchTerm, memberFilter, dateFilter, currentPage]);
+
+  // Timer for Michigan time and countdown to reset
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      
+      // Get Michigan time
+      const michiganTimeStr = now.toLocaleString('en-US', {
+        timeZone: 'America/Detroit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        month: 'short',
+        day: 'numeric'
+      });
+      setMichiganTime(michiganTimeStr);
+      
+      // Calculate time until midnight Michigan time
+      const michiganDateStr = now.toLocaleString('en-US', {
+        timeZone: 'America/Detroit',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      
+      const [datePart, timePart] = michiganDateStr.split(', ');
+      const [month, day, year] = datePart.split('/');
+      const [hours, minutes, seconds] = timePart.split(':');
+      
+      // Calculate seconds until midnight
+      const currentSeconds = parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
+      const secondsUntilMidnight = 86400 - currentSeconds; // 86400 = 24 hours in seconds
+      
+      const hoursLeft = Math.floor(secondsUntilMidnight / 3600);
+      const minutesLeft = Math.floor((secondsUntilMidnight % 3600) / 60);
+      const secondsLeft = secondsUntilMidnight % 60;
+      
+      setTimeUntilReset(`${hoursLeft}h ${minutesLeft}m ${secondsLeft}s`);
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const loadVisitors = async () => {
     try {
@@ -39,8 +91,6 @@ const Visitors = () => {
         memberFilter,
         date: dateFilter,
       });
-      console.log('Fetched visitors response:', response);
-
       if (response.success) {
         setVisitors(response.data);
         setTotalPages(response.pagination?.pages || 1);
@@ -54,34 +104,37 @@ const Visitors = () => {
     }
   };
 
-  const handleDelete = async (visitor) => {
+  const handleArchive = async (visitor) => {
     const result = await Swal.fire({
-      title: 'Delete Visitor?',
-      text: `Are you sure you want to delete visitor ${visitor.phone}?`,
-      icon: 'warning',
+      title: 'Archive Visitor?',
+      html: `
+        <p>Are you sure you want to archive visitor <strong>${visitor.phone}</strong>?</p>
+        <p class="text-sm text-gray-600 mt-2">The visitor data will be preserved and can be restored later if needed.</p>
+      `,
+      icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#EF4444',
+      confirmButtonColor: '#F59E0B',
       cancelButtonColor: '#6B7280',
-      confirmButtonText: 'Yes, delete!',
+      confirmButtonText: 'Yes, archive it!',
       cancelButtonText: 'Cancel',
     });
 
     if (!result.isConfirmed) return;
 
     try {
-      const response = await deleteVisitor(visitor._id, router);
+      const response = await archiveVisitor(visitor._id, router);
       if (response.success) {
         Swal.fire({
-          title: 'Deleted!',
-          text: 'Visitor has been deleted.',
+          title: 'Archived!',
+          text: 'Visitor has been archived successfully.',
           icon: 'success',
           confirmButtonColor: '#10B981',
         });
         loadVisitors();
       }
     } catch (error) {
-      console.error('Error deleting visitor:', error);
-      toast.error('Failed to delete visitor');
+      console.error('Error archiving visitor:', error);
+      toast.error('Failed to archive visitor');
     }
   };
 
@@ -92,6 +145,8 @@ const Visitors = () => {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: 'America/Detroit', // Display in Michigan timezone
+      timeZoneName: 'short'
     });
   };
 
@@ -147,8 +202,21 @@ const Visitors = () => {
           <div className="p-8">
             {/* Header */}
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Store Visitors</h1>
-              <p className="text-gray-600">Track and manage store check-ins</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">Store Visitors</h1>
+                  <p className="text-gray-600">Track and manage store check-ins</p>
+                </div>
+                <button
+                  onClick={() => router.push('/archived-visitors')}
+                  className="flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                  </svg>
+                  View Archive
+                </button>
+              </div>
             </div>
 
             {/* Statistics Cards */}
@@ -197,6 +265,34 @@ const Visitors = () => {
                   </div>
                   <div className="bg-purple-100 p-3 rounded-full">
                     <Calendar className="w-6 h-6 text-purple-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Michigan Time & Reset Timer */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-sm p-6 mb-6 border border-blue-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-center space-x-4">
+                  <div className="bg-blue-500 p-3 rounded-full">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Michigan Time (EST/EDT)</p>
+                    <p className="text-2xl font-bold text-gray-900">{michiganTime || 'Loading...'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="bg-purple-500 p-3 rounded-full">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Reset In (Midnight EST/EDT)</p>
+                    <p className="text-2xl font-bold text-purple-600">{timeUntilReset || 'Loading...'}</p>
                   </div>
                 </div>
               </div>
@@ -344,12 +440,12 @@ const Visitors = () => {
                                   </button>
                                 )}
                                 <button
-                                  onClick={() => handleDelete(visitor)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Delete"
+                                  onClick={() => handleArchive(visitor)}
+                                  className="text-orange-600 hover:text-orange-900"
+                                  title="Archive"
                                 >
                                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                   </svg>
                                 </button>
                               </div>

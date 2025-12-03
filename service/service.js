@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-    //  const ConstantsUrl = "http://localhost:5000/api/";
-const ConstantsUrl = "https://api.mypsyguide.io/api/";
+      // const ConstantsUrl = "http://localhost:5000/api/";
+ const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -323,11 +323,30 @@ const updateOrderStatusApi = async (orderId, status, router) => {
   }
 };
 
-const deleteOrderApi = async (orderId, router) => {
+const archiveOrderApi = async (orderId, router) => {
   try {
-    return await Api('delete', `admin/orders/${orderId}`, null, router);
+    return await Api('put', `admin/orders/${orderId}/archive`, null, router);
   } catch (error) {
-    console.error('Error deleting order:', error);
+    console.error('Error archiving order:', error);
+    throw error;
+  }
+};
+
+const unarchiveOrderApi = async (orderId, router) => {
+  try {
+    return await Api('put', `admin/orders/${orderId}/unarchive`, null, router);
+  } catch (error) {
+    console.error('Error unarchiving order:', error);
+    throw error;
+  }
+};
+
+const fetchArchivedOrders = async (router, params = {}) => {
+  try {
+    const queryParams = new URLSearchParams(params).toString();
+    return await Api('get', `admin/orders/archived/all?${queryParams}`, null, router);
+  } catch (error) {
+    console.error('Error fetching archived orders:', error);
     throw error;
   }
 };
@@ -782,11 +801,30 @@ const fetchAllVisitors = async (router, params = {}) => {
   }
 };
 
-const deleteVisitor = async (id, router) => {
+const archiveVisitor = async (id, router) => {
   try {
-    return await Api('delete', `visitors/admin/${id}`, null, router);
+    return await Api('put', `visitors/admin/${id}/archive`, null, router);
   } catch (error) {
-    console.error('Error deleting visitor:', error);
+    console.error('Error archiving visitor:', error);
+    throw error;
+  }
+};
+
+const unarchiveVisitor = async (id, router) => {
+  try {
+    return await Api('put', `visitors/admin/${id}/unarchive`, null, router);
+  } catch (error) {
+    console.error('Error unarchiving visitor:', error);
+    throw error;
+  }
+};
+
+const fetchArchivedVisitors = async (router, params = {}) => {
+  try {
+    const queryParams = new URLSearchParams(params).toString();
+    return await Api('get', `visitors/admin/archived/all?${queryParams}`, null, router);
+  } catch (error) {
+    console.error('Error fetching archived visitors:', error);
     throw error;
   }
 };
@@ -919,7 +957,9 @@ export {
   deleteUser,
   fetchAllOrders,
   updateOrderStatusApi,
-  deleteOrderApi,
+  archiveOrderApi,
+  unarchiveOrderApi,
+  fetchArchivedOrders,
   fetchLoginStatsLast7,
   fetchLoginStats,
   fetchAllReviews,
@@ -972,7 +1012,9 @@ export {
   updateHomepageImage,
   deleteHomepageImage,
   fetchAllVisitors,
-  deleteVisitor,
+  archiveVisitor,
+  unarchiveVisitor,
+  fetchArchivedVisitors,
   fetchUserNotes,
   createUserNote,
   updateUserNote,
