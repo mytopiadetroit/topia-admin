@@ -10,7 +10,9 @@ export function RegistrationsModal({
   onDateChange, 
   onSearch, 
   onTodayClick,
-  formatDateTime 
+  formatDateTime,
+  pagination,
+  onPageChange
 }) {
   if (!show) return null;
 
@@ -128,15 +130,42 @@ export function RegistrationsModal({
         </div>
 
         <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
-          <p className="text-sm text-gray-600">
-            Total: <span className="font-semibold">{data.length}</span> registration(s)
-          </p>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-          >
-            Close
-          </button>
+          <div className="flex items-center space-x-4">
+            <p className="text-sm text-gray-600">
+              Total: <span className="font-semibold">{pagination?.totalItems || data.length}</span> registration(s)
+            </p>
+            {pagination && pagination.totalPages > 1 && (
+              <p className="text-sm text-gray-500">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {pagination && pagination.totalPages > 1 && (
+              <>
+                <button
+                  onClick={() => onPageChange(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage === 1}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => onPageChange(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage === pagination.totalPages}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -152,7 +181,9 @@ export function LoginsModal({
   onDateChange, 
   onSearch, 
   onTodayClick,
-  formatDateTime 
+  formatDateTime,
+  pagination,
+  onPageChange
 }) {
   if (!show) return null;
 
@@ -266,15 +297,42 @@ export function LoginsModal({
         </div>
 
         <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
-          <p className="text-sm text-gray-600">
-            Total: <span className="font-semibold">{data.length}</span> unique user(s) logged in
-          </p>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-          >
-            Close
-          </button>
+          <div className="flex items-center space-x-4">
+            <p className="text-sm text-gray-600">
+              Total: <span className="font-semibold">{pagination?.totalItems || data.length}</span> unique user(s) logged in
+            </p>
+            {pagination && pagination.totalPages > 1 && (
+              <p className="text-sm text-gray-500">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            {pagination && pagination.totalPages > 1 && (
+              <>
+                <button
+                  onClick={() => onPageChange(pagination.currentPage - 1)}
+                  disabled={pagination.currentPage === 1}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => onPageChange(pagination.currentPage + 1)}
+                  disabled={pagination.currentPage === pagination.totalPages}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

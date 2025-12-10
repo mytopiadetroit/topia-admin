@@ -51,6 +51,9 @@ export default function UsersPage() {
   const [userNotes, setUserNotes] = useState([]);
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [hiddenVisits, setHiddenVisits] = useState([]); // Track hidden visits (UI only)
+  const [showCheckInHistory, setShowCheckInHistory] = useState(false);
+  const [checkInHistoryLoading, setCheckInHistoryLoading] = useState(false);
+  const [checkInHistory, setCheckInHistory] = useState([]);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -257,6 +260,32 @@ export default function UsersPage() {
     setShowUserModal(false);
     setSelectedUser(null);
     setIsEditMode(false);
+  };
+
+  const handleViewCheckInHistory = async (userId) => {
+    try {
+      setCheckInHistoryLoading(true);
+      setShowCheckInHistory(true);
+      
+      const response = await fetchVisitorByUserId(userId, router);
+      if (response.success && response.data) {
+        setCheckInHistory(response.data.visits || []);
+      } else {
+        setCheckInHistory([]);
+        toast.info('No check-in history found for this user');
+      }
+    } catch (error) {
+      console.error('Error loading check-in history:', error);
+      toast.error('Failed to load check-in history');
+      setCheckInHistory([]);
+    } finally {
+      setCheckInHistoryLoading(false);
+    }
+  };
+
+  const closeCheckInHistoryModal = () => {
+    setShowCheckInHistory(false);
+    setCheckInHistory([]);
     setIsEditingNotes(false);
     setNotesText('');
     setUserNotes([]);
@@ -1354,8 +1383,8 @@ export default function UsersPage() {
                         ${selectedUser.rewardPoints || 0}
                       </p>
                     </div>
-                    <div>
-                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center">
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h3 className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
@@ -1366,8 +1395,24 @@ export default function UsersPage() {
                       </p>
                       {selectedUser.lastVisit && (
                         <p className="text-xs text-gray-500 mt-1">
-                          Last: {new Date(selectedUser.lastVisit).toLocaleDateString()}
+                          Last: {new Date(selectedUser.lastVisit).toLocaleDateString('en-US', {
+                            timeZone: 'America/Detroit',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
                         </p>
+                      )}
+                      {(selectedUser.visitCount || 0) > 0 && (
+                        <button
+                          onClick={() => handleViewCheckInHistory(selectedUser._id)}
+                          className="mt-2 w-full text-xs px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
+                        >
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          View History
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1672,6 +1717,113 @@ export default function UsersPage() {
                   Close
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Check-in History Modal */}
+      {showCheckInHistory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Check-in History</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedUser?.fullName} - Total visits: {checkInHistory.length}
+                </p>
+              </div>
+              <button
+                onClick={closeCheckInHistoryModal}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {checkInHistoryLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : checkInHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {checkInHistory.slice().reverse().map((visit, index) => {
+                    const visitDate = new Date(visit.timestamp);
+                    const michiganDate = visitDate.toLocaleString('en-US', {
+                      timeZone: 'America/Detroit',
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    });
+                    
+                    return (
+                      <div key={index} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200 hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-sm font-semibold text-gray-900">
+                                Visit #{checkInHistory.length - index}
+                              </span>
+                              {visit.checkedInBy === 'admin' && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                  Admin Check-In
+                                </span>
+                              )}
+                              {visit.checkedInBy === 'self' && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                  Self Check-In
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-sm text-gray-700">
+                                <span className="font-medium">Date:</span> {michiganDate}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Michigan Time (EST/EDT)
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <p className="mt-4 text-gray-500">No check-in history found</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-600">
+                {checkInHistory.length > 0 && (
+                  <span>
+                    Showing all {checkInHistory.length} visit{checkInHistory.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={closeCheckInHistoryModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

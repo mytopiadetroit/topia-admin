@@ -5,7 +5,7 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-      // const ConstantsUrl = "http://localhost:5000/api/";
+      //  const ConstantsUrl = "http://localhost:5000/api/";
  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
@@ -624,36 +624,40 @@ const fetchContentCategories = async (router) => {
 };
 
 // Activity tracking helpers
-const fetchTodayRegistrations = async (router) => {
+const fetchTodayRegistrations = async (router, params = {}) => {
   try {
-    return await Api('get', 'users/admin/today-registrations', null, router);
+    const queryParams = new URLSearchParams(params).toString();
+    return await Api('get', `users/admin/today-registrations?${queryParams}`, null, router);
   } catch (error) {
     console.error('Error fetching today registrations:', error);
     throw error;
   }
 };
 
-const fetchTodayLogins = async (router) => {
+const fetchTodayLogins = async (router, params = {}) => {
   try {
-    return await Api('get', 'users/admin/today-logins', null, router);
+    const queryParams = new URLSearchParams(params).toString();
+    return await Api('get', `users/admin/today-logins?${queryParams}`, null, router);
   } catch (error) {
     console.error('Error fetching today logins:', error);
     throw error;
   }
 };
 
-const fetchRegistrationsByDate = async (router, startDate, endDate) => {
+const fetchRegistrationsByDate = async (router, startDate, endDate, params = {}) => {
   try {
-    return await Api('get', 'users/admin/registrations-by-date', null, router, { startDate, endDate });
+    const queryParams = new URLSearchParams({ startDate, endDate, ...params }).toString();
+    return await Api('get', `users/admin/registrations-by-date?${queryParams}`, null, router);
   } catch (error) {
     console.error('Error fetching registrations by date:', error);
     throw error;
   }
 };
 
-const fetchLoginsByDate = async (router, startDate, endDate) => {
+const fetchLoginsByDate = async (router, startDate, endDate, params = {}) => {
   try {
-    return await Api('get', 'users/admin/logins-by-date', null, router, { startDate, endDate });
+    const queryParams = new URLSearchParams({ startDate, endDate, ...params }).toString();
+    return await Api('get', `users/admin/logins-by-date?${queryParams}`, null, router);
   } catch (error) {
     console.error('Error fetching logins by date:', error);
     throw error;

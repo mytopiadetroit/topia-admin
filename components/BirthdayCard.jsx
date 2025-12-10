@@ -71,16 +71,41 @@ const BirthdayItem = ({ user, isToday = false, onViewUser }) => {
 };
 
 const BirthdayCard = ({ users, onViewUser }) => {
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentDay = today.getDate();
+  // Get current date in Michigan timezone (America/Detroit)
+  const getMichiganDate = () => {
+    const now = new Date();
+    const michiganDateStr = now.toLocaleString('en-US', {
+      timeZone: 'America/Detroit',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const [datePart] = michiganDateStr.split(', ');
+    const [month, day, year] = datePart.split('/');
+    
+    return {
+      year: parseInt(year),
+      month: parseInt(month),
+      day: parseInt(day),
+      fullDate: new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+    };
+  };
+
+  const michiganToday = getMichiganDate();
+  const currentMonth = michiganToday.month;
+  const currentDay = michiganToday.day;
 
   const { todaysBirthdays, upcomingBirthdays, allUsersWithBirthdays } = React.useMemo(() => {
     const todays = [];
     const upcoming = [];
     const allWithBirthdays = [];
-    const next7Days = new Date(today);
-    next7Days.setDate(today.getDate() + 7);
+    const next7Days = new Date(michiganToday.fullDate);
+    next7Days.setDate(michiganToday.fullDate.getDate() + 7);
 
     users.forEach(user => {
       if (!user.birthday?.month || !user.birthday?.day) {
@@ -109,16 +134,14 @@ const BirthdayCard = ({ users, onViewUser }) => {
       
       // Check if birthday is today
       if (userMonth === currentMonth && userDay === currentDay) {
-        console.log('Today\'s birthday:', user.fullName, user.birthday);
         todays.push(user);
       } 
       // Check if birthday is in next 7 days (excluding today)
       else {
-        const currentYear = today.getFullYear();
+        const currentYear = michiganToday.year;
         const birthdayThisYear = new Date(currentYear, userMonth - 1, userDay);
         
-        if (birthdayThisYear > today && birthdayThisYear <= next7Days) {
-          console.log('Upcoming birthday:', user.fullName, user.birthday);
+        if (birthdayThisYear > michiganToday.fullDate && birthdayThisYear <= next7Days) {
           upcoming.push(user);
         }
       }
@@ -127,8 +150,8 @@ const BirthdayCard = ({ users, onViewUser }) => {
 
     // Sort upcoming birthdays by date
     upcoming.sort((a, b) => {
-      const aDate = new Date(today.getFullYear(), parseInt(a.birthday.month) - 1, parseInt(a.birthday.day));
-      const bDate = new Date(today.getFullYear(), parseInt(b.birthday.month) - 1, parseInt(b.birthday.day));
+      const aDate = new Date(michiganToday.year, parseInt(a.birthday.month) - 1, parseInt(a.birthday.day));
+      const bDate = new Date(michiganToday.year, parseInt(b.birthday.month) - 1, parseInt(b.birthday.day));
       return aDate - bDate;
     });
 
@@ -137,7 +160,7 @@ const BirthdayCard = ({ users, onViewUser }) => {
       upcomingBirthdays: upcoming,
       allUsersWithBirthdays: allWithBirthdays
     };
-  }, [users, currentMonth, currentDay]);
+  }, [users, currentMonth, currentDay, michiganToday.year, michiganToday.fullDate]);
 
   const totalBirthdays = todaysBirthdays.length + upcomingBirthdays.length;
 

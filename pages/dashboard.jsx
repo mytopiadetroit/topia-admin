@@ -9,7 +9,7 @@ import {
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 // import { useRouter } from 'next/router';
-import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts } from '@/service/service';
+import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
 import BirthdayCard from '@/components/BirthdayCard';
 
@@ -21,38 +21,71 @@ export default function Dashboard() {
   const [products, setProducts] = useState([]);
   const [todayLogins, setTodayLogins] = useState(0);
   const [pendingVerifications, setPendingVerifications] = useState(0);
+  const [todayCheckIns, setTodayCheckIns] = useState(0);
   const [showRegistrationsModal, setShowRegistrationsModal] = useState(false);
   const [showLoginsModal, setShowLoginsModal] = useState(false);
   const [registrationsList, setRegistrationsList] = useState([]);
   const [loginsList, setLoginsList] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [registrationsPagination, setRegistrationsPagination] = useState(null);
+  const [loginsPagination, setLoginsPagination] = useState(null);
+  const [registrationsPage, setRegistrationsPage] = useState(1);
+  const [loginsPage, setLoginsPage] = useState(1);
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userModalLoading, setUserModalLoading] = useState(false);
+  const [michiganTime, setMichiganTime] = useState('');
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const [uRes, oRes, pRes, lRes, pvRes] = await Promise.all([
+        const [uRes, oRes, pRes, lRes, pvRes, vRes] = await Promise.all([
           fetchAllUsers(router, { page: 1, limit: 10000 }), // High limit for birthday calculations
           fetchAllOrders(router, { page: 1, limit: 100 }),
           fetchAllProducts(router, { page: 1, limit: 100 }),
           fetchTodayLogins(router),
-          fetchPendingVerificationsCount(router)
+          fetchPendingVerificationsCount(router),
+          fetchAllVisitors(router, { page: 1, limit: 1 }) // Just need statistics
         ]);
         if (uRes?.success) setUsers(uRes.data || []);
         if (oRes?.success) setOrders(oRes.data || []);
         if (pRes?.success) setProducts(pRes.data || []);
         if (lRes?.success) setTodayLogins(lRes.count || 0);
         if (pvRes?.success) setPendingVerifications(pvRes.count || 0);
+        if (vRes?.success) setTodayCheckIns(vRes.statistics?.todayVisitors || 0);
       } finally {
         setLoading(false);
       }
     };
     load();
   }, [router]);
+
+  // Timer for Michigan time display
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      
+      // Get Michigan time
+      const michiganTimeStr = now.toLocaleString('en-US', {
+        timeZone: 'America/Detroit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+      setMichiganTime(michiganTimeStr);
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const handleViewUser = async (userId) => {
     try {
@@ -94,13 +127,15 @@ export default function Dashboard() {
     );
   };
 
-  const handleViewRegistrations = async () => {
+  const handleViewRegistrations = async (page = 1) => {
     try {
       setModalLoading(true);
       setShowRegistrationsModal(true);
-      const res = await fetchTodayRegistrations(router);
+      setRegistrationsPage(page);
+      const res = await fetchTodayRegistrations(router, { page, limit: 200 });
       if (res?.success) {
         setRegistrationsList(res.data || []);
+        setRegistrationsPagination(res.pagination || null);
       }
     } catch (error) {
       console.error('Error loading registrations:', error);
@@ -109,13 +144,15 @@ export default function Dashboard() {
     }
   };
 
-  const handleViewLogins = async () => {
+  const handleViewLogins = async (page = 1) => {
     try {
       setModalLoading(true);
       setShowLoginsModal(true);
-      const res = await fetchTodayLogins(router);
+      setLoginsPage(page);
+      const res = await fetchTodayLogins(router, { page, limit: 200 });
       if (res?.success) {
         setLoginsList(res.data || []);
+        setLoginsPagination(res.pagination || null);
       }
     } catch (error) {
       console.error('Error loading logins:', error);
@@ -124,7 +161,7 @@ export default function Dashboard() {
     }
   };
 
-  const handleDateRangeSearch = async (type) => {
+  const handleDateRangeSearch = async (type, page = 1) => {
     if (!dateRange.start || !dateRange.end) {
       alert('Please select both start and end dates');
       return;
@@ -133,14 +170,18 @@ export default function Dashboard() {
     try {
       setModalLoading(true);
       if (type === 'registrations') {
-        const res = await fetchRegistrationsByDate(router, dateRange.start, dateRange.end);
+        setRegistrationsPage(page);
+        const res = await fetchRegistrationsByDate(router, dateRange.start, dateRange.end, { page, limit: 200 });
         if (res?.success) {
           setRegistrationsList(res.data || []);
+          setRegistrationsPagination(res.pagination || null);
         }
       } else {
-        const res = await fetchLoginsByDate(router, dateRange.start, dateRange.end);
+        setLoginsPage(page);
+        const res = await fetchLoginsByDate(router, dateRange.start, dateRange.end, { page, limit: 200 });
         if (res?.success) {
           setLoginsList(res.data || []);
+          setLoginsPagination(res.pagination || null);
         }
       }
     } catch (error) {
@@ -173,13 +214,25 @@ export default function Dashboard() {
 
   // Removed useMemo - now using state from API
 
+  const totalRegistrations = useMemo(() => users.length, [users]);
+  const fulfilledOrders = useMemo(() => orders.filter(o => o.status === 'fulfilled').length, [orders]);
+  const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed').length, [orders]);
+
   const stats = [
     {
-      title: 'Total Registrations Today',
-      value: String(todayRegistrations),
+      title: 'Total Registrations',
+      value: String(totalRegistrations),
       icon: '👥',
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100',
+      link: '/users'
+    },
+    {
+      title: 'Total Registrations Today',
+      value: String(todayRegistrations),
+      icon: '📝',
+      bgColor: 'bg-cyan-50',
+      iconBg: 'bg-cyan-100',
       hasDetailView: true,
       onViewDetails: handleViewRegistrations
     },
@@ -193,17 +246,33 @@ export default function Dashboard() {
       onViewDetails: handleViewLogins
     },
     {
+      title: 'Total Check-ins Today',
+      value: String(todayCheckIns),
+      icon: '✔️',
+      bgColor: 'bg-indigo-50',
+      iconBg: 'bg-indigo-100',
+      link: '/visitors'
+    },
+    {
       title: 'Pending ID Verifications',
       value: String(pendingVerifications),
       icon: '🏷️',
       bgColor: 'bg-yellow-50',
       iconBg: 'bg-yellow-100',
-       link: '/users'
+      link: '/users'
     },
     {
-      title: 'Total Submitted Orders',
-      value: String(orders.length),
-      icon: '📊',
+      title: 'Fulfilled Orders',
+      value: String(fulfilledOrders),
+      icon: '📦',
+      bgColor: 'bg-orange-50',
+      iconBg: 'bg-orange-100',
+      link: '/admin/orders'
+    },
+    {
+      title: 'Completed Orders',
+      value: String(completedOrders),
+      icon: '✅',
       bgColor: 'bg-green-50',
       iconBg: 'bg-green-100',
       link: '/admin/orders'
@@ -328,6 +397,22 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Michigan Time Display */}
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-sm p-6 mb-6 border border-blue-100">
+            <div className="flex items-center space-x-4">
+              <div className="bg-blue-500 p-3 rounded-full">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Michigan Time (EST/EDT)</p>
+                <p className="text-2xl font-bold text-gray-900">{michiganTime || 'Loading...'}</p>
+                <p className="text-xs text-gray-500 mt-1">All birthday dates are shown in Michigan timezone</p>
+              </div>
+            </div>
+          </div>
+
           {/* Middle Section - Birthday Notifications */}
           <div className="mb-6">
             <BirthdayCard users={users} onViewUser={handleViewUser} />
@@ -402,9 +487,17 @@ export default function Dashboard() {
           data={registrationsList}
           dateRange={dateRange}
           onDateChange={setDateRange}
-          onSearch={() => handleDateRangeSearch('registrations')}
-          onTodayClick={handleViewRegistrations}
+          onSearch={() => handleDateRangeSearch('registrations', 1)}
+          onTodayClick={() => handleViewRegistrations(1)}
           formatDateTime={formatDateTime}
+          pagination={registrationsPagination}
+          onPageChange={(page) => {
+            if (dateRange.start && dateRange.end) {
+              handleDateRangeSearch('registrations', page);
+            } else {
+              handleViewRegistrations(page);
+            }
+          }}
         />
 
         <LoginsModal
@@ -414,9 +507,17 @@ export default function Dashboard() {
           data={loginsList}
           dateRange={dateRange}
           onDateChange={setDateRange}
-          onSearch={() => handleDateRangeSearch('logins')}
-          onTodayClick={handleViewLogins}
+          onSearch={() => handleDateRangeSearch('logins', 1)}
+          onTodayClick={() => handleViewLogins(1)}
           formatDateTime={formatDateTime}
+          pagination={loginsPagination}
+          onPageChange={(page) => {
+            if (dateRange.start && dateRange.end) {
+              handleDateRangeSearch('logins', page);
+            } else {
+              handleViewLogins(page);
+            }
+          }}
         />
 
         {/* User Details Modal */}

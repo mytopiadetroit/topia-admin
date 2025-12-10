@@ -29,7 +29,13 @@ export default function AdminOrders() {
     try {
       setLoading(true);
       const response = await fetchAllOrders(router, { page, limit: 10, status: selectedStatus });
-      console.log('Fetched orders response:', response);
+      console.log('=== FETCH ORDERS RESPONSE ===');
+      console.log('Full Response:', response);
+      if (response.success && response.data.length > 0) {
+        console.log('First Order Items:', response.data[0].items);
+        console.log('First Item Details:', response.data[0].items[0]);
+      }
+      console.log('============================');
       if (response.success) {
         setOrders(response.data);
         if (response.meta) setTotalPages(response.meta.totalPages || 1);
@@ -48,7 +54,8 @@ export default function AdminOrders() {
     const textMap = {
       pending: 'Set order to Pending?',
       incomplete: 'Mark order as Incomplete? Reserved stock will be returned.',
-      fulfilled: 'Mark order as Fulfilled? Stock will remain deducted.',
+      fulfilled: 'Mark order as Fulfilled? Order is ready for customer pickup.',
+      completed: 'Mark order as Completed? Customer has picked up the order.',
       cancelled: 'Cancel this order? Reserved stock will be returned.'
     };
     const confirm = await Swal.fire({
@@ -116,7 +123,8 @@ export default function AdminOrders() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'fulfilled': return 'bg-green-100 text-green-800';
+      case 'fulfilled': return 'bg-orange-100 text-orange-800';
+      case 'completed': return 'bg-green-100 text-green-800';
       case 'incomplete': return 'bg-red-100 text-red-800';
       case 'cancelled': return 'bg-gray-200 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -144,6 +152,19 @@ export default function AdminOrders() {
   };
 
   const handleViewOrder = (order) => {
+    console.log('=== ORDER DATA ===');
+    console.log('Full Order:', order);
+    console.log('Order Items:', order.items);
+    order.items.forEach((item, index) => {
+      console.log(`Item ${index + 1}:`, {
+        name: item.name,
+        selectedVariant: item.selectedVariant,
+        selectedFlavor: item.selectedFlavor,
+        quantity: item.quantity,
+        price: item.price
+      });
+    });
+    console.log('==================');
     setSelectedOrder(order);
     setShowOrderModal(true);
   };
@@ -161,7 +182,8 @@ export default function AdminOrders() {
   const getStatusBadge = (status) => {
     const statusColors = {
       pending: 'bg-yellow-100 text-yellow-800',
-      fulfilled: 'bg-green-100 text-green-800',
+      fulfilled: 'bg-orange-100 text-orange-800',
+      completed: 'bg-green-100 text-green-800',
       incomplete: 'bg-red-100 text-red-800',
       cancelled: 'bg-gray-200 text-gray-800'
     };
@@ -246,6 +268,7 @@ export default function AdminOrders() {
               { key: 'all', label: 'All' },
               { key: 'pending', label: 'Pending' },
               { key: 'fulfilled', label: 'Fulfilled' },
+              { key: 'completed', label: 'Completed' },
               { key: 'incomplete', label: 'Incomplete' },
               { key: 'cancelled', label: 'Cancelled' }
             ].map(tab => (
@@ -361,6 +384,7 @@ export default function AdminOrders() {
                         >
                            <option value="pending">Pending</option>
                            <option value="fulfilled">Fulfilled</option>
+                           <option value="completed">Completed</option>
                            <option value="incomplete">Incomplete</option>
                            <option value="cancelled">Cancel Order</option>
                         </select>
@@ -589,6 +613,26 @@ export default function AdminOrders() {
                         )}
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{item.name}</p>
+                          {item.selectedVariant && (
+                            <p className="text-sm text-blue-600">
+                              Size: {item.selectedVariant.size?.value}{item.selectedVariant.size?.unit}
+                            </p>
+                          )}
+                          {!item.selectedVariant && item.product?.variants && item.product.variants.length > 0 && (
+                            <p className="text-sm text-gray-500 italic">
+                              Available sizes: {item.product.variants.map(v => `${v.size?.value}${v.size?.unit}`).join(', ')}
+                            </p>
+                          )}
+                          {item.selectedFlavor && (
+                            <p className="text-sm text-purple-600">
+                              Flavor: {item.selectedFlavor.name}
+                            </p>
+                          )}
+                          {!item.selectedFlavor && item.product?.flavors && item.product.flavors.length > 0 && (
+                            <p className="text-sm text-gray-500 italic">
+                              Available flavors: {item.product.flavors.filter(f => f.isActive).map(f => f.name).join(', ')}
+                            </p>
+                          )}
                           <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                         </div>
                         <div className="text-right">

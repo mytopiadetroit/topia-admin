@@ -32,7 +32,13 @@ export default function AdminOrders() {
         try {
             setLoading(true);
             const response = await fetchAllOrders(router, { page, limit: 10, status: selectedStatus, userid });
-            console.log('Fetched orders response:', response);
+            console.log('=== FETCH USER ORDERS RESPONSE ===');
+            console.log('Full Response:', response);
+            if (response.success && response.data.length > 0) {
+                console.log('First Order Items:', response.data[0].items);
+                console.log('First Item Details:', response.data[0].items[0]);
+            }
+            console.log('==================================');
             if (response.success) {
                 setOrders(response.data);
                 if (response.meta) setTotalPages(response.meta.totalPages || 1);
@@ -137,6 +143,19 @@ export default function AdminOrders() {
     };
 
     const handleViewOrder = (order) => {
+        console.log('=== ORDER DATA (User Orders) ===');
+        console.log('Full Order:', order);
+        console.log('Order Items:', order.items);
+        order.items.forEach((item, index) => {
+            console.log(`Item ${index + 1}:`, {
+                name: item.name,
+                selectedVariant: item.selectedVariant,
+                selectedFlavor: item.selectedFlavor,
+                quantity: item.quantity,
+                price: item.price
+            });
+        });
+        console.log('==================');
         setSelectedOrder(order);
         setShowOrderModal(true);
     };
@@ -579,6 +598,26 @@ export default function AdminOrders() {
                                                 )}
                                                 <div className="flex-1">
                                                     <p className="font-medium text-gray-900">{item.name}</p>
+                                                    {item.selectedVariant && (
+                                                      <p className="text-sm text-blue-600">
+                                                        Size: {item.selectedVariant.size?.value}{item.selectedVariant.size?.unit}
+                                                      </p>
+                                                    )}
+                                                    {!item.selectedVariant && item.product?.variants && item.product.variants.length > 0 && (
+                                                      <p className="text-sm text-gray-500 italic">
+                                                        Available sizes: {item.product.variants.map(v => `${v.size?.value}${v.size?.unit}`).join(', ')}
+                                                      </p>
+                                                    )}
+                                                    {item.selectedFlavor && (
+                                                      <p className="text-sm text-purple-600">
+                                                        Flavor: {item.selectedFlavor.name}
+                                                      </p>
+                                                    )}
+                                                    {!item.selectedFlavor && item.product?.flavors && item.product.flavors.length > 0 && (
+                                                      <p className="text-sm text-gray-500 italic">
+                                                        Available flavors: {item.product.flavors.filter(f => f.isActive).map(f => f.name).join(', ')}
+                                                      </p>
+                                                    )}
                                                     <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                                                 </div>
                                                 <div className="text-right">
