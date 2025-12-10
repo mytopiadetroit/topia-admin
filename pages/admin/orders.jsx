@@ -613,26 +613,34 @@ export default function AdminOrders() {
                         )}
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">{item.name}</p>
-                          {item.selectedVariant && (
-                            <p className="text-sm text-blue-600">
-                              Size: {item.selectedVariant.size?.value}{item.selectedVariant.size?.unit}
+                          {item.selectedVariant ? (
+                            <p className="text-sm text-blue-600 font-medium">
+                              ✓ Size: {item.selectedVariant.size?.value}{item.selectedVariant.size?.unit}
                             </p>
-                          )}
-                          {!item.selectedVariant && item.product?.variants && item.product.variants.length > 0 && (
-                            <p className="text-sm text-gray-500 italic">
-                              Available sizes: {item.product.variants.map(v => `${v.size?.value}${v.size?.unit}`).join(', ')}
+                          ) : item.product?.variants && item.product.variants.length === 1 ? (
+                            <p className="text-sm text-blue-500">
+                              Size: {item.product.variants[0].size?.value}{item.product.variants[0].size?.unit}
                             </p>
-                          )}
-                          {item.selectedFlavor && (
-                            <p className="text-sm text-purple-600">
-                              Flavor: {item.selectedFlavor.name}
+                          ) : item.product?.variants && item.product.variants.length > 1 ? (
+                            <p className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block">
+                              ⚠️ Size not recorded - Contact customer
                             </p>
-                          )}
-                          {!item.selectedFlavor && item.product?.flavors && item.product.flavors.length > 0 && (
-                            <p className="text-sm text-gray-500 italic">
-                              Available flavors: {item.product.flavors.filter(f => f.isActive).map(f => f.name).join(', ')}
+                          ) : null}
+                          
+                          {item.selectedFlavor ? (
+                            <p className="text-sm text-purple-600 font-medium">
+                              ✓ Flavor: {item.selectedFlavor.name}
                             </p>
-                          )}
+                          ) : item.product?.flavors && item.product.flavors.filter(f => f.isActive).length === 1 ? (
+                            <p className="text-sm text-purple-500">
+                              Flavor: {item.product.flavors.find(f => f.isActive)?.name}
+                            </p>
+                          ) : item.product?.flavors && item.product.flavors.filter(f => f.isActive).length > 1 ? (
+                            <p className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block">
+                              ⚠️ Flavor not recorded - Contact customer
+                            </p>
+                          ) : null}
+                          
                           <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                         </div>
                         <div className="text-right">
