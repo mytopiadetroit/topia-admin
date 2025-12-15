@@ -6,7 +6,7 @@ import axios from "axios";
 //   : "https://api.mypsyguide.io/api/";
 
       //  const ConstantsUrl = "http://localhost:5000/api/";
- const ConstantsUrl = "https://api.mypsyguide.io/api/";
+  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -490,10 +490,11 @@ const fetchSubscribers = async (router, params = {}) => {
 };
 
 // Update user status (admin)
-const updateUserStatusAdmin = async (id, status, router) => {
+const updateUserStatusAdmin = async (id, status, router, suspensionReason = '') => {
   try {
     return await Api('put', `users/${id}/status`, { 
       status,
+      suspensionReason,
       forceUpdateSession: true  // This will force the backend to update the user's session
     }, router);
   } catch (error) {
@@ -860,6 +861,38 @@ const fetchVisitorByUserId = async (userId, router) => {
   }
 };
 
+// Export customers data to Excel
+const exportCustomersData = async (router) => {
+  try {
+    let token = "";
+    if (typeof window !== "undefined") {
+      token = localStorage?.getItem("adminToken") || localStorage?.getItem("token") || "";
+    }
+
+    const response = await axios({
+      method: 'get',
+      url: ConstantsUrl + 'admin/export-customers',
+      headers: { Authorization: `jwt ${token}` },
+      responseType: 'blob' // Important for file download
+    });
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Shroomtopia_Customers_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error exporting customers data:', error);
+    throw error;
+  }
+};
+
 // Gallery Management helpers (admin)
 const fetchAllGalleryImages = async (router) => {
   try {
@@ -1026,7 +1059,8 @@ export {
   fetchPendingVerificationsCount,
   adminCheckInUser,
   fetchVisitorByPhone,
-  fetchVisitorByUserId
+  fetchVisitorByUserId,
+  exportCustomersData
 };
 
 // User Notes Management helpers

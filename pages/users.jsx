@@ -54,6 +54,16 @@ export default function UsersPage() {
   const [showCheckInHistory, setShowCheckInHistory] = useState(false);
   const [checkInHistoryLoading, setCheckInHistoryLoading] = useState(false);
   const [checkInHistory, setCheckInHistory] = useState([]);
+  const [showAdjustPointsModal, setShowAdjustPointsModal] = useState(false);
+  const [adjustingPoints, setAdjustingPoints] = useState(false);
+  const [adjustmentData, setAdjustmentData] = useState({
+    adjustmentType: 'add',
+    points: '',
+    reason: '',
+    customReason: '',
+    notes: ''
+  });
+  const [rewardTasks, setRewardTasks] = useState([]);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -500,6 +510,168 @@ export default function UsersPage() {
     }
   };
 
+  // Load reward tasks for adjust points
+  useEffect(() => {
+    loadRewardTasks();
+  }, []);
+
+  const loadRewardTasks = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.mypsyguide.io'}/api/rewards/admin/tasks`, {
+        headers: {
+          'Authorization': `jwt ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setRewardTasks(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading reward tasks:', error);
+    }
+  };
+
+  // Open adjust points modal
+  const handleOpenAdjustPointsModal = (user) => {
+    setSelectedUser(user);
+    setAdjustmentData({
+      adjustmentType: 'add',
+      points: '',
+      reason: '',
+      customReason: '',
+      notes: ''
+    });
+    setShowAdjustPointsModal(true);
+  };
+
+  // Close adjust points modal
+  const handleCloseAdjustPointsModal = () => {
+    setShowAdjustPointsModal(false);
+    setAdjustmentData({
+      adjustmentType: 'add',
+      points: '',
+      reason: '',
+      customReason: '',
+      notes: ''
+    });
+  };
+
+  // Handle adjust points submission
+  const handleAdjustPoints = async (e) => {
+    e.preventDefault();
+
+    if (!adjustmentData.points || adjustmentData.points <= 0) {
+      toast.error('Please enter a valid points amount');
+      return;
+    }
+
+    if (!adjustmentData.reason) {
+      toast.error('Please select a reason');
+      return;
+    }
+
+    if (adjustmentData.reason === 'custom' && !adjustmentData.customReason.trim()) {
+      toast.error('Please enter a custom reason');
+      return;
+    }
+
+    // Prevent negative balance
+    if (adjustmentData.adjustmentType === 'subtract') {
+      const currentBalance = selectedUser.rewardPoints || 0;
+      const pointsToSubtract = parseFloat(adjustmentData.points);
+      
+      if (pointsToSubtract > currentBalance) {
+        Swal.fire({
+          title: 'Insufficient Balance!',
+          html: `
+            <p>Cannot subtract <strong>${pointsToSubtract}</strong></p>
+            <p>User <strong>${selectedUser.fullName}</strong> only has <strong>${currentBalance}</strong> balance.</p>
+          `,
+          icon: 'error',
+          confirmButtonColor: '#EF4444'
+        });
+        return;
+      }
+    }
+
+    const confirmResult = await Swal.fire({
+      title: `${adjustmentData.adjustmentType === 'add' ? 'Add' : 'Subtract'} Points?`,
+      html: `
+        <p>User: <strong>${selectedUser.fullName}</strong></p>
+        <p>Current Balance: <strong>$${selectedUser.rewardPoints || 0}</strong></p>
+        <p>Points to ${adjustmentData.adjustmentType}: <strong>$${adjustmentData.points}</strong></p>
+        <p>New Balance: <strong>$${adjustmentData.adjustmentType === 'add' 
+          ? (selectedUser.rewardPoints || 0) + parseFloat(adjustmentData.points)
+          : Math.max(0, (selectedUser.rewardPoints || 0) - parseFloat(adjustmentData.points))
+        }</strong></p>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: adjustmentData.adjustmentType === 'add' ? '#10B981' : '#EF4444',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: `Yes, ${adjustmentData.adjustmentType} points!`,
+      cancelButtonText: 'Cancel'
+    });
+
+    if (!confirmResult.isConfirmed) {
+      return;
+    }
+
+    setAdjustingPoints(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.mypsyguide.io'}/api/points/admin/adjust/${selectedUser._id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `jwt ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          adjustmentType: adjustmentData.adjustmentType,
+          points: parseFloat(adjustmentData.points),
+          reason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : adjustmentData.reason,
+          customReason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : '',
+          notes: adjustmentData.notes
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await Swal.fire({
+          title: 'Success!',
+          text: `Points ${adjustmentData.adjustmentType === 'add' ? 'added' : 'subtracted'} successfully!`,
+          icon: 'success',
+          confirmButtonColor: '#10B981',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        handleCloseAdjustPointsModal();
+        
+        // Refresh users list
+        const usersResponse = await fetchAllUsers(router, {
+          page,
+          limit: 10,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+          search: searchTerm
+        });
+        
+        if (usersResponse.success) {
+          setUsers(usersResponse.data || []);
+          if (usersResponse.meta) {
+            setTotalPages(usersResponse.meta.totalPages || 1);
+          }
+        }
+      } else {
+        toast.error(data.message || 'Failed to adjust points');
+      }
+    } catch (error) {
+      console.error('Error adjusting points:', error);
+      toast.error('An error occurred while adjusting points');
+    } finally {
+      setAdjustingPoints(false);
+    }
+  };
+
   const handleSaveUser = async () => {
     if (!selectedUser?._id) return;
     
@@ -708,53 +880,93 @@ export default function UsersPage() {
 
   const handleChangeStatus = async (userId, status) => {
     try {
-      // First show confirmation dialog
-      const result = await Swal.fire({
-        title: 'Confirm Status Change',
-        text: `Are you sure you want to change status to ${status}?`,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Yes, update it!',
-        cancelButtonText: 'Cancel'
-      });
-
-      if (result.isConfirmed) {
-        const res = await updateUserStatusAdmin(userId, status, router);
-        if (res.success) {
-          // Show success message with SweetAlert2
-          await Swal.fire({
-            title: 'Success!',
-            text: 'User status has been updated successfully.',
-            icon: 'success',
-            confirmButtonColor: '#3085d6',
-            timer: 2000,
-            timerProgressBar: true
-          });
-          // Refresh the users list after successful status update
-          const response = await fetchAllUsers(router, {
-            page,
-            limit: 10,
-            status: filterStatus === 'all' ? undefined : filterStatus,
-            search: searchTerm
-          });
-
-          if (response.success) {
-            setUsers(response.data || []);
-            if (response.meta) {
-              setTotalPages(response.meta.totalPages || 1);
+      let suspensionReason = '';
+      
+      // If suspending, ask for reason
+      if (status === 'suspend') {
+        const result = await Swal.fire({
+          title: 'Suspend User',
+          html: `
+            <p class="mb-4">Please provide a reason for suspending this user:</p>
+            <textarea 
+              id="suspension-reason" 
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500" 
+              rows="4" 
+              placeholder="Enter suspension reason (this will be shown to the user)..."
+            ></textarea>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#EF4444',
+          cancelButtonColor: '#6B7280',
+          confirmButtonText: 'Suspend User',
+          cancelButtonText: 'Cancel',
+          preConfirm: () => {
+            const reason = document.getElementById('suspension-reason').value;
+            if (!reason || reason.trim() === '') {
+              Swal.showValidationMessage('Please enter a suspension reason');
+              return false;
             }
+            return reason;
           }
-        } else {
-          // Show error message with SweetAlert2
-          await Swal.fire({
-            title: 'Error!',
-            text: res.message || 'Failed to update status',
-            icon: 'error',
-            confirmButtonColor: '#3085d6'
-          });
+        });
+
+        if (!result.isConfirmed) {
+          return;
         }
+        
+        suspensionReason = result.value;
+      } else {
+        // For other status changes, show normal confirmation
+        const result = await Swal.fire({
+          title: 'Confirm Status Change',
+          text: `Are you sure you want to change status to ${status}?`,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#3085d6',
+          cancelButtonColor: '#d33',
+          confirmButtonText: 'Yes, update it!',
+          cancelButtonText: 'Cancel'
+        });
+
+        if (!result.isConfirmed) {
+          return;
+        }
+      }
+
+      const res = await updateUserStatusAdmin(userId, status, router, suspensionReason);
+      if (res.success) {
+        // Show success message with SweetAlert2
+        await Swal.fire({
+          title: 'Success!',
+          text: 'User status has been updated successfully.',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        // Refresh the users list after successful status update
+        const response = await fetchAllUsers(router, {
+          page,
+          limit: 10,
+          status: filterStatus === 'all' ? undefined : filterStatus,
+          search: searchTerm
+        });
+
+        if (response.success) {
+          setUsers(response.data || []);
+          if (response.meta) {
+            setTotalPages(response.meta.totalPages || 1);
+          }
+        }
+      } else {
+        // Show error message with SweetAlert2
+        await Swal.fire({
+          title: 'Error!',
+          text: res.message || 'Failed to update status',
+          icon: 'error',
+          confirmButtonColor: '#3085d6'
+        });
       }
     } catch (error) {
       console.error('Status update error:', error);
@@ -1189,6 +1401,16 @@ export default function UsersPage() {
               <div className="flex items-center space-x-2">
                 {!isEditMode && selectedUser && (
                   <>
+                    <button
+                      type="button"
+                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                      onClick={() => handleOpenAdjustPointsModal(selectedUser)}
+                    >
+                      <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Adjust Points
+                    </button>
                     <button
                       type="button"
                       className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -1825,6 +2047,178 @@ export default function UsersPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Adjust Points Modal */}
+      {showAdjustPointsModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Adjust Points for {selectedUser.fullName}</h3>
+              <button
+                onClick={handleCloseAdjustPointsModal}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-700">
+                <span className="font-medium">Current Balance:</span> ${selectedUser.rewardPoints || 0}
+              </p>
+            </div>
+
+            <form onSubmit={handleAdjustPoints} className="space-y-4">
+              {/* Adjustment Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Adjustment Type *
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="adjustmentType"
+                      value="add"
+                      checked={adjustmentData.adjustmentType === 'add'}
+                      onChange={(e) => setAdjustmentData({ ...adjustmentData, adjustmentType: e.target.value })}
+                      className="mr-2"
+                    />
+                    <span className="text-green-600 font-medium">Add Points</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="adjustmentType"
+                      value="subtract"
+                      checked={adjustmentData.adjustmentType === 'subtract'}
+                      onChange={(e) => setAdjustmentData({ ...adjustmentData, adjustmentType: e.target.value })}
+                      className="mr-2"
+                    />
+                    <span className="text-red-600 font-medium">Subtract Points</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Points Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Points Amount ($) *
+                </label>
+                <input
+                  type="number"
+                  value={adjustmentData.points}
+                  onChange={(e) => setAdjustmentData({ ...adjustmentData, points: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter points amount"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              {/* Reason Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reason *
+                </label>
+                <select
+                  value={adjustmentData.reason}
+                  onChange={(e) => setAdjustmentData({ ...adjustmentData, reason: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select a reason</option>
+                  <optgroup label="Reward Tasks">
+                    {rewardTasks.map(task => (
+                      <option key={task._id} value={task.title}>
+                        {task.title} (${task.reward})
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="Store Redemption">Store Redemption</option>
+                    <option value="Manual Correction">Manual Correction</option>
+                    <option value="Bonus Reward">Bonus Reward</option>
+                    <option value="Refund">Refund</option>
+                    <option value="custom">Custom Reason</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Custom Reason */}
+              {adjustmentData.reason === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Custom Reason *
+                  </label>
+                  <input
+                    type="text"
+                    value={adjustmentData.customReason}
+                    onChange={(e) => setAdjustmentData({ ...adjustmentData, customReason: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter custom reason"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={adjustmentData.notes}
+                  onChange={(e) => setAdjustmentData({ ...adjustmentData, notes: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Add any additional notes"
+                />
+              </div>
+
+              {/* Preview */}
+              {adjustmentData.points && (
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+                  <p className="text-sm text-gray-600">
+                    Current Balance: ${selectedUser.rewardPoints || 0}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {adjustmentData.adjustmentType === 'add' ? 'Adding' : 'Subtracting'}: ${adjustmentData.points}
+                  </p>
+                  <p className="text-sm font-bold text-gray-900">
+                    New Balance: ${adjustmentData.adjustmentType === 'add' 
+                      ? (selectedUser.rewardPoints || 0) + parseFloat(adjustmentData.points || 0)
+                      : Math.max(0, (selectedUser.rewardPoints || 0) - parseFloat(adjustmentData.points || 0))
+                    }
+                  </p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={handleCloseAdjustPointsModal}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adjustingPoints}
+                  className={`px-4 py-2 text-white rounded-md hover:opacity-90 disabled:opacity-50 ${
+                    adjustmentData.adjustmentType === 'add' ? 'bg-green-600' : 'bg-red-600'
+                  }`}
+                >
+                  {adjustingPoints ? 'Processing...' : `${adjustmentData.adjustmentType === 'add' ? 'Add' : 'Subtract'} Points`}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

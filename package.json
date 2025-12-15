@@ -14,6 +14,8 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@headlessui/react": "^2.2.9",
     "axios": "^1.6.2",
+    "exceljs": "^4.4.0",
+    "json2csv": "^6.0.0-alpha.2",
     "lucide-react": "^0.539.0",
     "next": "^15.6.0-canary.42",
     "next-auth": "^4.24.11",

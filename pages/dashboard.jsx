@@ -4,12 +4,13 @@ import {
   TrendingDown,
   X,
   Eye,
-  Mail
+  Mail,
+  Download
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 // import { useRouter } from 'next/router';
-import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors } from '@/service/service';
+import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors, exportCustomersData } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
 import BirthdayCard from '@/components/BirthdayCard';
 
@@ -36,6 +37,24 @@ export default function Dashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [michiganTime, setMichiganTime] = useState('');
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Export customers data - Using service helper
+  const handleExportCustomers = async () => {
+    try {
+      setExportLoading(true);
+      toast.info('Preparing export... Please wait');
+
+      await exportCustomersData(router);
+      
+      toast.success('Customer data exported successfully!');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export data. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -215,6 +234,7 @@ export default function Dashboard() {
   // Removed useMemo - now using state from API
 
   const totalRegistrations = useMemo(() => users.length, [users]);
+  const verifiedRegistrations = useMemo(() => users.filter(u => u.status === 'verified').length, [users]);
   const fulfilledOrders = useMemo(() => orders.filter(o => o.status === 'fulfilled').length, [orders]);
   const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed').length, [orders]);
 
@@ -225,6 +245,14 @@ export default function Dashboard() {
       icon: '👥',
       bgColor: 'bg-blue-50',
       iconBg: 'bg-blue-100',
+      link: '/users'
+    },
+    {
+      title: 'Verified Registrations',
+      value: String(verifiedRegistrations),
+      icon: '✅',
+      bgColor: 'bg-green-50',
+      iconBg: 'bg-green-100',
       link: '/users'
     },
     {
@@ -327,25 +355,34 @@ export default function Dashboard() {
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
           </div>
         )}
-        {/* Header */}
-        {/* <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
-          <h1 className="text-2xl text-gray-700 font-bold">Dashboard</h1>
-          <div className="flex items-center gap-2">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-700">
-                {user?.name || user?.phone || 'Admin'}
-              </p>
-              <p className="text-xs text-gray-500">Admin</p>
-            </div>
-            <div className="h-10 w-10 rounded-full overflow-hidden">
-              <div className="w-full h-full bg-gradient-to-r from-pink-400 to-red-400 flex items-center justify-center">
-                <span className="text-white font-medium text-sm">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
-                </span>
-              </div>
-            </div>
+        {/* Header with Export Button */}
+        <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
+          <div>
+          
+            <p className="text-sm text-gray-500 mt-1">Export customer data with complete order history</p>
           </div>
-        </div> */}
+          <button
+            onClick={handleExportCustomers}
+            disabled={exportLoading}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+              exportLoading 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                : 'bg-green-600 text-white hover:bg-green-700 shadow-md hover:shadow-lg'
+            }`}
+          >
+            {exportLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Exporting...</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-5 w-5" />
+                <span>Export to Excel</span>
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Dashboard Content */}
         <div className="space-y-6">
