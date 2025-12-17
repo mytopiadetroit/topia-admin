@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import Sidebar from '../components/sidebar';
 import { fetchAdminProfile, updateAdminProfile } from '../service/service';
 import { fetchShopSettings, updateShopSettings } from '../service/shopSettingsService';
+import { fetchTaxSettings, updateTaxSettings } from '../service/taxService';
 import Swal from 'sweetalert2';
 import LoginPageSetting from '@/components/loginPageSetting';
 import HomepageImageSetting from '@/components/HomepageImageSetting';
@@ -53,9 +54,18 @@ const AdminSettings = () => {
     }))
   });
 
+  // Tax settings state
+  const [taxSettings, setTaxSettings] = useState({
+    name: 'Sales Tax',
+    percentage: 7,
+    isActive: true,
+    description: ''
+  });
+
   useEffect(() => {
     loadAdminProfile();
     loadShopSettings();
+    loadTaxSettings();
   }, []);
 
   const loadAdminProfile = async () => {
@@ -113,6 +123,25 @@ const AdminSettings = () => {
     }
   };
 
+  const loadTaxSettings = async () => {
+    try {
+      const response = await fetchTaxSettings(router);
+      if (response.success) {
+        setTaxSettings(response.data);
+      } else {
+        throw new Error(response.message || 'Failed to load tax settings');
+      }
+    } catch (error) {
+      console.error('Error loading tax settings:', error);
+      Swal.fire({
+        title: 'Error!',
+        text: error.message || 'Failed to load tax settings.',
+        icon: 'error',
+        confirmButtonColor: '#EF4444'
+      });
+    }
+  };
+
   const handleTimingChange = (index, field, value) => {
     const updatedTimings = [...shopSettings.timings];
     updatedTimings[index] = {
@@ -130,6 +159,42 @@ const AdminSettings = () => {
       ...shopSettings,
       phone: e.target.value
     });
+  };
+
+  const handleTaxChange = (field, value) => {
+    setTaxSettings({
+      ...taxSettings,
+      [field]: value
+    });
+  };
+
+  const handleSaveTaxSettings = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+
+    try {
+      const response = await updateTaxSettings(taxSettings, router);
+      if (response.success) {
+        Swal.fire({
+          title: 'Success!',
+          text: 'Tax settings updated successfully!',
+          icon: 'success',
+          confirmButtonColor: '#10B981'
+        });
+      } else {
+        throw new Error(response.message || 'Failed to update tax settings');
+      }
+    } catch (error) {
+      console.error('Error updating tax settings:', error);
+      Swal.fire({
+        title: 'Error!',
+        text: error.message || 'Failed to update tax settings',
+        icon: 'error',
+        confirmButtonColor: '#EF4444'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveShopSettings = async (e) => {
@@ -303,6 +368,12 @@ const AdminSettings = () => {
                   className={`${activeTab === 'homepage_images' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                 >
                   Homepage Images
+                </button>
+                <button
+                  onClick={() => setActiveTab('tax')}
+                  className={`${activeTab === 'tax' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                >
+                  Tax Settings
                 </button>
               </nav>
             </div>
@@ -557,6 +628,87 @@ const AdminSettings = () => {
             {activeTab === 'homepage_images' && <div>
               <HomepageImageSetting />
             </div>}
+
+            {activeTab === 'tax' && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h2 className="text-lg font-medium text-gray-900 mb-6">Tax Settings</h2>
+
+                <form onSubmit={handleSaveTaxSettings}>
+                  <div className="space-y-6">
+                    <div>
+                      <label htmlFor="tax-name" className="block text-sm font-medium text-gray-700 mb-1">
+                        Tax Name
+                      </label>
+                      <input
+                        type="text"
+                        id="tax-name"
+                        value={taxSettings.name}
+                        onChange={(e) => handleTaxChange('name', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Sales Tax"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="tax-percentage" className="block text-sm font-medium text-gray-700 mb-1">
+                        Tax Percentage (%)
+                      </label>
+                      <input
+                        type="number"
+                        id="tax-percentage"
+                        value={taxSettings.percentage}
+                        onChange={(e) => handleTaxChange('percentage', parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="7"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        required
+                      />
+                      <p className="mt-1 text-sm text-gray-500">Enter tax percentage (0-100)</p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="tax-description" className="block text-sm font-medium text-gray-700 mb-1">
+                        Description (Optional)
+                      </label>
+                      <textarea
+                        id="tax-description"
+                        value={taxSettings.description}
+                        onChange={(e) => handleTaxChange('description', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter tax description"
+                        rows="3"
+                      />
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="tax-active"
+                        checked={taxSettings.isActive}
+                        onChange={(e) => handleTaxChange('isActive', e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="tax-active" className="ml-2 block text-sm text-gray-700">
+                        Tax is Active
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end mt-6">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      {saving ? 'Saving...' : 'Save Tax Settings'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       </div>

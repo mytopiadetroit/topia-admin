@@ -339,7 +339,15 @@ export default function Dashboard() {
         name,
         sold,
         remaining: product ? (product.stock || 0) : 0,
-        price: product ? `$${product.price}` : 'N/A'
+        price: (() => {
+          if (!product) return 'N/A';
+          if (product.price != null && product.price > 0) return `$${product.price}`;
+          if (product.variants && product.variants.length > 0) {
+            const minPrice = Math.min(...product.variants.map(v => v.price));
+            return `$${minPrice}`;
+          }
+          return 'N/A';
+        })()
       };
     });
     
