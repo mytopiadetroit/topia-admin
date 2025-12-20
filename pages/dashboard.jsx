@@ -5,10 +5,13 @@ import {
   X,
   Eye,
   Mail,
-  Download
+  Download,
+  BarChart3,
+  LayoutDashboard
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
+import AnalyticsTab from '@/components/AnalyticsTab';
 // import { useRouter } from 'next/router';
 import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors, exportCustomersData } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
@@ -16,6 +19,7 @@ import BirthdayCard from '@/components/BirthdayCard';
 
 export default function Dashboard() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -358,13 +362,45 @@ export default function Dashboard() {
   return (
     <Layout title="Dashboard">
       <div className="p-6">
-        {loading && (
-          <div className="mb-6 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-        {/* Header with Export Button */}
-        <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
+        {/* Tab Navigation */}
+        <div className="mb-6 flex gap-2 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-all border-b-2 ${
+              activeTab === 'overview'
+                ? 'border-blue-600 text-blue-600 bg-blue-50'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            <span>Overview</span>
+          </button>
+          {/* <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex items-center gap-2 px-6 py-3 font-medium transition-all border-b-2 ${
+              activeTab === 'analytics'
+                ? 'border-purple-600 text-purple-600 bg-purple-50'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span>Analytics</span>
+          </button> */}
+        </div>
+
+        {/* Analytics Tab Content */}
+        {activeTab === 'analytics' && <AnalyticsTab />}
+
+        {/* Overview Tab Content */}
+        {activeTab === 'overview' && (
+          <>
+            {loading && (
+              <div className="mb-6 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+              </div>
+            )}
+            {/* Header with Export Button */}
+            <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
           <div>
           
             <p className="text-sm text-gray-500 mt-1">Export customer data with complete order history</p>
@@ -666,6 +702,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
     </Layout>

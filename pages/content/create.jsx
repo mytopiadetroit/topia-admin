@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
+import dynamic from 'next/dynamic';
 import { 
   createContentApi, 
   fetchContentCategories,
@@ -7,8 +8,11 @@ import {
 } from '../../service/service';
 import Swal from 'sweetalert2';
 
+const JoditEditor = dynamic(() => import('jodit-react'), { ssr: false });
+
 const CreateContent = () => {
   const router = useRouter();
+  const editor = useRef(null);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
@@ -33,6 +37,43 @@ const CreateContent = () => {
   });
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  const config = useMemo(
+    () => ({
+      readonly: false,
+      placeholder: 'Start typing your content...',
+      height: 500,
+      toolbar: true,
+      spellcheck: true,
+      language: 'en',
+      toolbarButtonSize: 'medium',
+      toolbarAdaptive: false,
+      showCharsCounter: true,
+      showWordsCounter: true,
+      showXPathInStatusbar: false,
+      askBeforePasteHTML: false,
+      askBeforePasteFromWord: false,
+      buttons: [
+        'source', '|',
+        'bold', 'italic', 'underline', 'strikethrough', '|',
+        'ul', 'ol', '|',
+        'outdent', 'indent', '|',
+        'font', 'fontsize', 'brush', 'paragraph', '|',
+        'image', 'video', 'table', 'link', '|',
+        'align', 'undo', 'redo', '|',
+        'hr', 'eraser', 'copyformat', '|',
+        'symbol', 'fullsize', 'print', 'about'
+      ],
+      uploader: {
+        insertImageAsBase64URI: true
+      },
+      removeButtons: [],
+      disablePlugins: [],
+      events: {},
+      textIcons: false,
+    }),
+    []
+  );
 
   useEffect(() => {
     loadCategories();
@@ -409,18 +450,21 @@ const CreateContent = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Content *
                 </label>
-                <textarea
-                  name="content"
-                  value={formData.content}
-                  onChange={handleInputChange}
-                  onBlur={handleBlur}
-                  required
-                  rows={15}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
-                    errors.content ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-                  placeholder="Enter your content here..."
-                />
+                <div className={`border rounded-lg ${
+                  errors.content ? 'border-red-500' : 'border-gray-300'
+                }`}>
+                  <JoditEditor
+                    ref={editor}
+                    value={formData.content}
+                    config={config}
+                    tabIndex={1}
+                    onBlur={(newContent) => {
+                      setFormData(prev => ({ ...prev, content: newContent }));
+                      setTouched(prev => ({ ...prev, content: true }));
+                      validateField('content', newContent);
+                    }}
+                  />
+                </div>
                 {errors.content && <p className="mt-1 text-sm text-red-600">{errors.content}</p>}
               </div>
 

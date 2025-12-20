@@ -17,7 +17,8 @@ import {
   Gift,
   DollarSign,
   Settings,
-  Image
+  Image,
+  Flame
 } from "lucide-react";
 import { fetchAllCategories } from "../service/service";
 
@@ -106,6 +107,9 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
     } else if (currentPath.includes("/points-management")) {
       setActiveModule("points");
       setActiveCategory("");
+    } else if (currentPath.includes("/deals")) {
+      setActiveModule("deals");
+      setActiveCategory("");
     } else if (currentPath.includes("/gallery")) {
       setActiveModule("gallery");
       setActiveCategory("");
@@ -146,7 +150,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       >
         {/* Header with Logo */}
         <div className="flex-shrink-0">
-          <div className="flex items-center px-4 py-6">
+          <div className="flex items-center px-4 py-0">
             <div className="flex items-center">
               {!collapsed && (
                 <a
@@ -321,6 +325,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 {!collapsed && <span className="ml-2">Points Management</span>}
               </button>
             </Link>
+
+            {/* <Link href="/deals">
+              <button
+                className={getModuleClasses("deals")}
+              >
+                <Flame className={`h-5 w-5 ${activeModule === "deals" ? "text-[#80A6F7]" : ""}`} />
+                {!collapsed && <span className="ml-2">Crazy Deals</span>}
+              </button>
+            </Link> */}
 
             <Link href="/gallery">
               <button

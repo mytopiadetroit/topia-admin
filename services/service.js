@@ -1,6 +1,6 @@
 import axios from "axios";
-    //  const ConstantsUrl = "http://localhost:5000/api/";
-       const ConstantsUrl = "https://api.mypsyguide.io/api/";
+      // const ConstantsUrl = "http://localhost:5000/api/";
+      const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 // export const ConstantsUrl = "";
 
@@ -135,7 +135,7 @@ function Api(method, url, data, router, params) {
 
     let token = "";
     if (typeof window !== "undefined") {
-      token = localStorage?.getItem("token") || "";
+      token = localStorage?.getItem("adminToken") || localStorage?.getItem("token") || "";
     }
 
     axios({
@@ -176,7 +176,7 @@ function ApiFormData(method, url, data, router) {
 
     let token = "";
     if (typeof window !== "undefined") {
-      token = localStorage?.getItem("token") || "";
+      token = localStorage?.getItem("adminToken") || localStorage?.getItem("token") || "";
     }
 
     axios({
@@ -262,6 +262,52 @@ const timeSince = (date) => {
     );
   }
   return "Just now";
+};
+
+// Analytics API functions
+export const fetchReturningCustomers = async (router, period = 30) => {
+  try {
+    return await Api('get', 'analytics/returning-customers', null, router, { period });
+  } catch (error) {
+    console.error('Error fetching returning customers:', error);
+    throw error;
+  }
+};
+
+export const fetchSalesComparison = async (router) => {
+  try {
+    return await Api('get', 'analytics/sales-comparison', null, router);
+  } catch (error) {
+    console.error('Error fetching sales comparison:', error);
+    throw error;
+  }
+};
+
+export const fetchTopSellingProducts = async (router, limit = 10, period = 30) => {
+  try {
+    return await Api('get', 'analytics/top-selling-products', null, router, { limit, period });
+  } catch (error) {
+    console.error('Error fetching top selling products:', error);
+    throw error;
+  }
+};
+
+export const fetchRevenueAnalytics = async (router, period = 30) => {
+  try {
+    return await Api('get', 'analytics/revenue', null, router, { period });
+  } catch (error) {
+    console.error('Error fetching revenue analytics:', error);
+    throw error;
+  }
+};
+
+export const fetchCustomerGrowth = async (router, period = 30) => {
+  try {
+    return await Api('get', 'analytics/customer-growth', null, router, { period });
+  } catch (error) {
+    console.error('Error fetching customer growth:', error);
+    throw error;
+  }
 };
 
 export { Api, timeSince, ApiFormData };

@@ -6,7 +6,7 @@ import axios from "axios";
 //   : "https://api.mypsyguide.io/api/";
 
       // const ConstantsUrl = "http://localhost:5000/api/";
-   const ConstantsUrl = "https://api.mypsyguide.io/api/";
+    const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -976,6 +976,98 @@ const toggleFeedbackSection = async (router) => {
   }
 };
 
+// Analytics API functions
+const fetchReturningCustomers = async (router, period = 30) => {
+  try {
+    return await Api('get', 'analytics/returning-customers', null, router, { period });
+  } catch (error) {
+    console.error('Error fetching returning customers:', error);
+    throw error;
+  }
+};
+
+const fetchSalesComparison = async (router) => {
+  try {
+    return await Api('get', 'analytics/sales-comparison', null, router);
+  } catch (error) {
+    console.error('Error fetching sales comparison:', error);
+    throw error;
+  }
+};
+
+const fetchTopSellingProducts = async (router, limit = 10, period = 30) => {
+  try {
+    return await Api('get', 'analytics/top-selling-products', null, router, { limit, period });
+  } catch (error) {
+    console.error('Error fetching top selling products:', error);
+    throw error;
+  }
+};
+
+const fetchRevenueAnalytics = async (router, period = 30) => {
+  try {
+    return await Api('get', 'analytics/revenue', null, router, { period });
+  } catch (error) {
+    console.error('Error fetching revenue analytics:', error);
+    throw error;
+  }
+};
+
+const fetchCustomerGrowth = async (router, period = 30) => {
+  try {
+    return await Api('get', 'analytics/customer-growth', null, router, { period });
+  } catch (error) {
+    console.error('Error fetching customer growth:', error);
+    throw error;
+  }
+};
+
+// Deals Management helpers (admin)
+const fetchAllDeals = async (router) => {
+  try {
+    return await Api('get', 'deals', null, router);
+  } catch (error) {
+    console.error('Error fetching deals:', error);
+    throw error;
+  }
+};
+
+const fetchDealById = async (id, router) => {
+  try {
+    return await Api('get', `deals/${id}`, null, router);
+  } catch (error) {
+    console.error('Error fetching deal:', error);
+    throw error;
+  }
+};
+
+const createDealApi = async (formData, router) => {
+  try {
+    return await ApiFormData('post', 'deals', formData, router);
+  } catch (error) {
+    console.error('Error creating deal:', error);
+    throw error;
+  }
+};
+
+const updateDealApi = async (id, formData, router) => {
+  try {
+    return await ApiFormData('put', `deals/${id}`, formData, router);
+  } catch (error) {
+    console.error('Error updating deal:', error);
+    throw error;
+  }
+};
+
+const deleteDealApi = async (id, router) => {
+  try {
+    return await Api('delete', `deals/${id}`, null, router);
+  } catch (error) {
+    console.error('Error deleting deal:', error);
+    throw error;
+  }
+};
+
 export {
   Api,
   timeSince,
@@ -1060,7 +1152,17 @@ export {
   adminCheckInUser,
   fetchVisitorByPhone,
   fetchVisitorByUserId,
-  exportCustomersData
+  exportCustomersData,
+  fetchReturningCustomers,
+  fetchSalesComparison,
+  fetchTopSellingProducts,
+  fetchRevenueAnalytics,
+  fetchCustomerGrowth,
+  fetchAllDeals,
+  fetchDealById,
+  createDealApi,
+  updateDealApi,
+  deleteDealApi
 };
 
 // User Notes Management helpers
