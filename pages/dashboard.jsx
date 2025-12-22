@@ -375,7 +375,7 @@ export default function Dashboard() {
             <LayoutDashboard className="h-5 w-5" />
             <span>Overview</span>
           </button>
-          {/* <button
+          <button
             onClick={() => setActiveTab('analytics')}
             className={`flex items-center gap-2 px-6 py-3 font-medium transition-all border-b-2 ${
               activeTab === 'analytics'
@@ -385,7 +385,7 @@ export default function Dashboard() {
           >
             <BarChart3 className="h-5 w-5" />
             <span>Analytics</span>
-          </button> */}
+          </button>
         </div>
 
         {/* Analytics Tab Content */}

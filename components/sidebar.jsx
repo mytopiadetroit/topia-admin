@@ -326,14 +326,14 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
               </button>
             </Link>
 
-            {/* <Link href="/deals">
+            <Link href="/deals">
               <button
                 className={getModuleClasses("deals")}
               >
                 <Flame className={`h-5 w-5 ${activeModule === "deals" ? "text-[#80A6F7]" : ""}`} />
                 {!collapsed && <span className="ml-2">Crazy Deals</span>}
               </button>
-            </Link> */}
+            </Link>
 
             <Link href="/gallery">
               <button
