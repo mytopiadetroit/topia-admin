@@ -21,7 +21,9 @@ export default function DealsManagement() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    discountType: 'percentage',
     discountPercentage: '',
+    discountAmount: '',
     startDate: '',
     endDate: '',
     products: [],
@@ -52,7 +54,8 @@ export default function DealsManagement() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetchAllProducts(router);
+      // Request all products without pagination limit
+      const response = await fetchAllProducts(router, { limit: 1000 });
       if (response.success) {
         setProducts(response.data);
       }
@@ -81,7 +84,14 @@ export default function DealsManagement() {
       // Append all form fields
       formDataToSend.append('title', formData.title);
       formDataToSend.append('description', formData.description);
-      formDataToSend.append('discountPercentage', formData.discountPercentage);
+      formDataToSend.append('discountType', formData.discountType);
+      
+      if (formData.discountType === 'percentage') {
+        formDataToSend.append('discountPercentage', formData.discountPercentage);
+      } else {
+        formDataToSend.append('discountAmount', formData.discountAmount);
+      }
+      
       formDataToSend.append('startDate', formData.startDate);
       formDataToSend.append('endDate', formData.endDate);
       formDataToSend.append('products', JSON.stringify(formData.products));
@@ -166,7 +176,9 @@ export default function DealsManagement() {
     setFormData({
       title: deal.title,
       description: deal.description || '',
-      discountPercentage: deal.discountPercentage,
+      discountType: deal.discountType || 'percentage',
+      discountPercentage: deal.discountPercentage || '',
+      discountAmount: deal.discountAmount || '',
       startDate: new Date(deal.startDate).toISOString().slice(0, 16),
       endDate: new Date(deal.endDate).toISOString().slice(0, 16),
       products: deal.products.map(p => p._id),
@@ -195,7 +207,9 @@ export default function DealsManagement() {
     setFormData({
       title: '',
       description: '',
+      discountType: 'percentage',
       discountPercentage: '',
+      discountAmount: '',
       startDate: '',
       endDate: '',
       products: [],
@@ -324,7 +338,11 @@ export default function DealsManagement() {
                     
                     <div className="flex flex-col items-end gap-3">
                       <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-6 py-3 rounded-xl text-center">
-                        <div className="text-3xl font-extrabold">{deal.discountPercentage}%</div>
+                        <div className="text-3xl font-extrabold">
+                          {deal.discountType === 'percentage' 
+                            ? `${deal.discountPercentage}%` 
+                            : `$${deal.discountAmount}`}
+                        </div>
                         <div className="text-xs font-semibold">OFF</div>
                       </div>
                       <div className="flex gap-2">
@@ -443,21 +461,62 @@ export default function DealsManagement() {
               </div>
 
               {/* Discount & Dates */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Discount % *
+                    Discount Type *
                   </label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    max="100"
-                    value={formData.discountPercentage}
-                    onChange={(e) => setFormData({ ...formData, discountPercentage: e.target.value })}
+                  <select
+                    value={formData.discountType}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      discountType: e.target.value,
+                      discountPercentage: '',
+                      discountAmount: ''
+                    })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
+                  >
+                    <option value="percentage">Percentage Off (%)</option>
+                    <option value="fixed">Fixed Amount Off ($)</option>
+                  </select>
                 </div>
+                
+                {formData.discountType === 'percentage' ? (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Discount Percentage * (%)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      max="100"
+                      value={formData.discountPercentage}
+                      onChange={(e) => setFormData({ ...formData, discountPercentage: e.target.value })}
+                      placeholder="e.g., 25"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Discount Amount * ($)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      value={formData.discountAmount}
+                      onChange={(e) => setFormData({ ...formData, discountAmount: e.target.value })}
+                      placeholder="e.g., 10.00"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Start Date *
