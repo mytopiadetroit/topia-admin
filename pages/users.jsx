@@ -1216,9 +1216,15 @@ export default function UsersPage() {
                           <div className="text-sm font-medium text-gray-900">
                             {user.fullName}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {user.phone}
-                          </div>
+                          <button
+                            onClick={() => handleManualCheckIn(user._id, user.fullName)}
+                            className="mt-1 px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-1 transition-colors shadow-sm"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Check-In
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -1226,6 +1232,7 @@ export default function UsersPage() {
                       <div className="text-sm text-gray-900">{user.email}</div>
                       <div className="text-sm text-gray-500">{user.phone}</div>
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getRoleBadge(user.role)}
                     </td>

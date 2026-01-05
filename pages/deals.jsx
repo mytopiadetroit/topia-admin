@@ -27,6 +27,7 @@ export default function DealsManagement() {
     startDate: '',
     endDate: '',
     products: [],
+    dealItems: [], // New: specific variants/flavors
     isActive: true,
     showBanner: true,
     bannerInterval: 30,
@@ -95,6 +96,7 @@ export default function DealsManagement() {
       formDataToSend.append('startDate', formData.startDate);
       formDataToSend.append('endDate', formData.endDate);
       formDataToSend.append('products', JSON.stringify(formData.products));
+      formDataToSend.append('dealItems', JSON.stringify(formData.dealItems));
       formDataToSend.append('isActive', formData.isActive);
       formDataToSend.append('showBanner', formData.showBanner);
       formDataToSend.append('bannerInterval', formData.bannerInterval);
@@ -173,6 +175,17 @@ export default function DealsManagement() {
 
   const handleEdit = (deal) => {
     setEditingDeal(deal);
+    
+    // Convert dealItems to proper format with string IDs for comparison
+    const formattedDealItems = (deal.dealItems || []).map(item => ({
+      product: typeof item.product === 'object' ? item.product._id : item.product,
+      variantId: item.variantId || null,
+      flavorId: item.flavorId || null,
+    }));
+    
+    console.log('Editing deal:', deal.title);
+    console.log('Deal Items:', formattedDealItems);
+    
     setFormData({
       title: deal.title,
       description: deal.description || '',
@@ -182,6 +195,7 @@ export default function DealsManagement() {
       startDate: new Date(deal.startDate).toISOString().slice(0, 16),
       endDate: new Date(deal.endDate).toISOString().slice(0, 16),
       products: deal.products.map(p => p._id),
+      dealItems: formattedDealItems,
       isActive: deal.isActive,
       showBanner: deal.showBanner,
       bannerInterval: deal.bannerInterval,
@@ -213,6 +227,7 @@ export default function DealsManagement() {
       startDate: '',
       endDate: '',
       products: [],
+      dealItems: [],
       isActive: true,
       showBanner: true,
       bannerInterval: 30,
@@ -228,6 +243,82 @@ export default function DealsManagement() {
         ? prev.products.filter(id => id !== productId)
         : [...prev.products, productId]
     }));
+  };
+
+  const toggleVariantSelection = (productId, variantId) => {
+    setFormData(prev => {
+      const existingIndex = prev.dealItems.findIndex(
+        item => {
+          const itemProductId = typeof item.product === 'object' ? item.product._id : item.product;
+          const itemVariantId = item.variantId;
+          return itemProductId?.toString() === productId?.toString() && 
+                 itemVariantId?.toString() === variantId?.toString();
+        }
+      );
+      
+      if (existingIndex >= 0) {
+        // Remove this variant
+        return {
+          ...prev,
+          dealItems: prev.dealItems.filter((_, idx) => idx !== existingIndex)
+        };
+      } else {
+        // Add this variant
+        return {
+          ...prev,
+          dealItems: [...prev.dealItems, { product: productId, variantId, flavorId: null }]
+        };
+      }
+    });
+  };
+
+  const toggleFlavorSelection = (productId, flavorId) => {
+    setFormData(prev => {
+      const existingIndex = prev.dealItems.findIndex(
+        item => {
+          const itemProductId = typeof item.product === 'object' ? item.product._id : item.product;
+          const itemFlavorId = item.flavorId;
+          return itemProductId?.toString() === productId?.toString() && 
+                 itemFlavorId?.toString() === flavorId?.toString();
+        }
+      );
+      
+      if (existingIndex >= 0) {
+        // Remove this flavor
+        return {
+          ...prev,
+          dealItems: prev.dealItems.filter((_, idx) => idx !== existingIndex)
+        };
+      } else {
+        // Add this flavor
+        return {
+          ...prev,
+          dealItems: [...prev.dealItems, { product: productId, variantId: null, flavorId }]
+        };
+      }
+    });
+  };
+
+  const isVariantSelected = (productId, variantId) => {
+    return formData.dealItems.some(
+      item => {
+        const itemProductId = typeof item.product === 'object' ? item.product._id : item.product;
+        const itemVariantId = item.variantId;
+        return itemProductId?.toString() === productId?.toString() && 
+               itemVariantId?.toString() === variantId?.toString();
+      }
+    );
+  };
+
+  const isFlavorSelected = (productId, flavorId) => {
+    return formData.dealItems.some(
+      item => {
+        const itemProductId = typeof item.product === 'object' ? item.product._id : item.product;
+        const itemFlavorId = item.flavorId;
+        return itemProductId?.toString() === productId?.toString() && 
+               itemFlavorId?.toString() === flavorId?.toString();
+      }
+    );
   };
 
   const formatDate = (date) => {
@@ -367,17 +458,46 @@ export default function DealsManagement() {
                   {/* Products */}
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <p className="text-sm font-semibold text-gray-700 mb-2">
-                      Products in this deal: {deal.products.length}
+                      {deal.dealItems && deal.dealItems.length > 0 
+                        ? `Deal Items: ${deal.dealItems.length} variants/flavors selected`
+                        : `Products in this deal: ${deal.products.length}`}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {deal.products.slice(0, 5).map((product) => (
-                        <span key={product._id} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs">
-                          {product.name}
-                        </span>
-                      ))}
-                      {deal.products.length > 5 && (
+                      {deal.dealItems && deal.dealItems.length > 0 ? (
+                        // Show specific variants/flavors
+                        deal.dealItems.slice(0, 5).map((item, idx) => {
+                          const product = item.product;
+                          let label = product?.name || 'Unknown';
+                          
+                          if (item.variantId && product?.variants) {
+                            const variant = product.variants.find(v => v._id.toString() === item.variantId.toString());
+                            if (variant) {
+                              label += ` - ${variant.size.value}${variant.size.unit === 'grams' ? 'G' : variant.size.unit}`;
+                            }
+                          } else if (item.flavorId && product?.flavors) {
+                            const flavor = product.flavors.find(f => f._id.toString() === item.flavorId.toString());
+                            if (flavor) {
+                              label += ` - ${flavor.name}`;
+                            }
+                          }
+                          
+                          return (
+                            <span key={idx} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs">
+                              {label}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        // Show all products (old format)
+                        deal.products.slice(0, 5).map((product) => (
+                          <span key={product._id} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs">
+                            {product.name}
+                          </span>
+                        ))
+                      )}
+                      {((deal.dealItems && deal.dealItems.length > 5) || (!deal.dealItems && deal.products.length > 5)) && (
                         <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs">
-                          +{deal.products.length - 5} more
+                          +{(deal.dealItems?.length || deal.products.length) - 5} more
                         </span>
                       )}
                     </div>
@@ -583,26 +703,97 @@ export default function DealsManagement() {
                 </div>
               </div>
 
-              {/* Products Selection */}
+              {/* Products Selection with Variants/Flavors */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Select Products * ({formData.products.length} selected)
+                  Select Products & Variants/Flavors * ({formData.dealItems.length} items selected)
                 </label>
-                <div className="max-h-64 overflow-y-auto border border-gray-300 rounded-xl p-4 space-y-2">
-                  {products.map((product) => (
-                    <div key={product._id} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id={`product-${product._id}`}
-                        checked={formData.products.includes(product._id)}
-                        onChange={() => toggleProductSelection(product._id)}
-                        className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
-                      />
-                      <label htmlFor={`product-${product._id}`} className="ml-3 text-sm text-gray-700">
-                        {product.name} - ${product.price}
-                      </label>
-                    </div>
-                  ))}
+                <div className="max-h-96 overflow-y-auto border border-gray-300 rounded-xl p-4 space-y-4">
+                  {products.map((product) => {
+                    const hasVariants = product.hasVariants && product.variants && product.variants.length > 0;
+                    const hasFlavors = product.flavors && product.flavors.length > 0;
+                    
+                    return (
+                      <div key={product._id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        {/* Product Name */}
+                        <div className="font-semibold text-gray-900 mb-3">
+                          {product.name}
+                        </div>
+
+                        {/* Variants Selection */}
+                        {hasVariants && (
+                          <div className="ml-4 space-y-2">
+                            <div className="text-xs font-semibold text-gray-600 uppercase mb-2">Variants:</div>
+                            {product.variants.map((variant) => (
+                              <div key={variant._id} className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`variant-${product._id}-${variant._id}`}
+                                  checked={isVariantSelected(product._id, variant._id)}
+                                  onChange={() => toggleVariantSelection(product._id, variant._id)}
+                                  className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                                />
+                                <label 
+                                  htmlFor={`variant-${product._id}-${variant._id}`} 
+                                  className="ml-2 text-sm text-gray-700"
+                                >
+                                  {variant.size.value}{variant.size.unit === 'grams' ? 'G' : variant.size.unit} - ${variant.price} (Stock: {variant.stock})
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Flavors Selection */}
+                        {hasFlavors && (
+                          <div className="ml-4 space-y-2">
+                            <div className="text-xs font-semibold text-gray-600 uppercase mb-2">Flavors:</div>
+                            {product.flavors.filter(f => f.isActive).map((flavor) => (
+                              <div key={flavor._id} className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  id={`flavor-${product._id}-${flavor._id}`}
+                                  checked={isFlavorSelected(product._id, flavor._id)}
+                                  onChange={() => toggleFlavorSelection(product._id, flavor._id)}
+                                  className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                                />
+                                <label 
+                                  htmlFor={`flavor-${product._id}-${flavor._id}`} 
+                                  className="ml-2 text-sm text-gray-700"
+                                >
+                                  {flavor.name} - ${flavor.price} (Stock: {flavor.stock})
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Simple Product (no variants/flavors) - Allow whole product selection */}
+                        {!hasVariants && !hasFlavors && (
+                          <div className="ml-4">
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id={`product-${product._id}`}
+                                checked={formData.products.includes(product._id)}
+                                onChange={() => toggleProductSelection(product._id)}
+                                className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                              />
+                              <label 
+                                htmlFor={`product-${product._id}`} 
+                                className="ml-2 text-sm text-gray-700"
+                              >
+                                Entire Product - ${product.price} (Stock: {product.stock})
+                              </label>
+                            </div>
+                            <div className="mt-1 text-xs text-gray-500 italic">
+                              This product has no variants. Deal will apply to the entire product.
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
