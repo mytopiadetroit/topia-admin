@@ -5,7 +5,7 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-      // const ConstantsUrl = "http://localhost:5000/api/";
+    //  const ConstantsUrl = "http://localhost:5000/api/";
      const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
@@ -231,7 +231,7 @@ const fetchAllCategories = async (router) => {
 // Helper function to fetch products by category
 const fetchProductsByCategory = async (categoryId, router, page, limit) => {
   try {
-    return await Api('get', `products/category/paginated/${categoryId}?page=${page}&limlt=${limit}`, null, router);
+    return await Api('get', `products/category/paginated/${categoryId}?page=${page}&limit=${limit}&includeInactive=true`, null, router);
   } catch (error) {
     console.error('Error fetching products by category:', error);
     throw error;
@@ -264,6 +264,16 @@ const deleteProduct = async (id, router) => {
     return await Api('delete', `products/${id}`, null, router);
   } catch (error) {
     console.error('Error deleting product:', error);
+    throw error;
+  }
+};
+
+// Helper function to toggle product active/inactive status
+const toggleProductStatus = async (productId, router) => {
+  try {
+    return await Api('patch', `products/${productId}/toggle-status`, null, router);
+  } catch (error) {
+    console.error('Error toggling product status:', error);
     throw error;
   }
 };
@@ -1164,6 +1174,7 @@ export {
   createProduct,
   updateProductApi,
   deleteProduct,
+  toggleProductStatus,
   fetchAllUsers,
   fetchUserById,
   updateUser,

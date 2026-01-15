@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { Api, fetchProductsByCategory, fetchAllCategories, createProduct, deleteProduct, updateProductApi, toast, fetchAllReviewTags } from '../../service/service';
+import { Api, fetchProductsByCategory, fetchAllCategories, createProduct, deleteProduct, updateProductApi, toggleProductStatus, toast, fetchAllReviewTags } from '../../service/service';
 import Swal from 'sweetalert2';
 // import { CURRENCY_SIGN } from '../../utils/constants';
 import {
@@ -745,6 +745,21 @@ export default function ProductsByCategory() {
     }
   };
 
+  const handleToggleProductStatus = async (productId) => {
+    try {
+      const res = await toggleProductStatus(productId, router);
+      if (res?.success) {
+        toast.success(res.message || 'Product status updated successfully');
+        await loadProducts();
+      } else {
+        toast.error(res?.message || 'Failed to update product status');
+      }
+    } catch (error) {
+      console.error('Error toggling product status:', error);
+      toast.error('Failed to update product status');
+    }
+  };
+
   const openAddModal = () => {
     setForm({
       name: '',
@@ -1263,6 +1278,17 @@ export default function ProductsByCategory() {
                               </button>
                               <button onClick={() => handleEditProduct(product._id)} className="text-green-600 hover:text-green-900 p-1" title="Edit Product">
                                 <Edit className="h-4 w-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleToggleProductStatus(product._id)} 
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                                  product.isActive 
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                                title={product.isActive ? 'Click to deactivate' : 'Click to activate'}
+                              >
+                                {product.isActive ? 'Active' : 'Inactive'}
                               </button>
                               <button onClick={() => handleDeleteProduct(product._id)} className="text-red-600 hover:text-red-900 p-1" title="Delete Product">
                                 <Trash2 className="h-4 w-4" />
