@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-      //  const ConstantsUrl = "http://localhost:5000/api/";
-      const ConstantsUrl = "https://api.mypsyguide.io/api/";
+      // const ConstantsUrl = "http://localhost:5000/api/";
+     const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -1068,6 +1068,90 @@ const deleteDealApi = async (id, router) => {
   }
 };
 
+// SMS Notification helpers (admin)
+const sendBulkSMSApi = async (data, router) => {
+  try {
+    return await Api('post', 'sms/send-bulk', data, router);
+  } catch (error) {
+    console.error('Error sending bulk SMS:', error);
+    throw error;
+  }
+};
+
+const fetchSMSHistory = async (router, params = {}) => {
+  try {
+    return await Api('get', 'sms/history', null, router, params);
+  } catch (error) {
+    console.error('Error fetching SMS history:', error);
+    throw error;
+  }
+};
+
+const fetchSMSDetails = async (id, router) => {
+  try {
+    return await Api('get', `sms/${id}`, null, router);
+  } catch (error) {
+    console.error('Error fetching SMS details:', error);
+    throw error;
+  }
+};
+
+const fetchSMSStats = async (router) => {
+  try {
+    return await Api('get', 'sms/stats/overview', null, router);
+  } catch (error) {
+    console.error('Error fetching SMS stats:', error);
+    throw error;
+  }
+};
+
+const previewSMSRecipients = async (data, router) => {
+  try {
+    return await Api('post', 'sms/preview-recipients', data, router);
+  } catch (error) {
+    console.error('Error previewing SMS recipients:', error);
+    throw error;
+  }
+};
+
+// Birthday SMS helpers
+const sendBirthdaySMSManually = async (router) => {
+  try {
+    return await Api('post', 'sms/send-birthday-manual', null, router);
+  } catch (error) {
+    console.error('Error sending birthday SMS:', error);
+    throw error;
+  }
+};
+
+const previewBirthdayUsers = async (router) => {
+  try {
+    return await Api('get', 'sms/preview-birthday-users', null, router);
+  } catch (error) {
+    console.error('Error previewing birthday users:', error);
+    throw error;
+  }
+};
+
+// Individual SMS helpers
+const searchUsersForSMS = async (search, router) => {
+  try {
+    return await Api('get', 'sms/search-users', null, router, { search });
+  } catch (error) {
+    console.error('Error searching users:', error);
+    throw error;
+  }
+};
+
+const sendIndividualSMS = async (data, router) => {
+  try {
+    return await Api('post', 'sms/send-individual', data, router);
+  } catch (error) {
+    console.error('Error sending individual SMS:', error);
+    throw error;
+  }
+};
+
 export {
   Api,
   timeSince,
@@ -1162,7 +1246,16 @@ export {
   fetchDealById,
   createDealApi,
   updateDealApi,
-  deleteDealApi
+  deleteDealApi,
+  sendBulkSMSApi,
+  fetchSMSHistory,
+  fetchSMSDetails,
+  fetchSMSStats,
+  previewSMSRecipients,
+  sendBirthdaySMSManually,
+  previewBirthdayUsers,
+  searchUsersForSMS,
+  sendIndividualSMS
 };
 
 // User Notes Management helpers

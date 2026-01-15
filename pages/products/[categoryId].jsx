@@ -1612,6 +1612,7 @@ export default function ProductsByCategory() {
                                 <option value="kg">Kg</option>
                                 <option value="ml">ML</option>
                                 <option value="liters">Liters</option>
+                                <option value="pieces">Pieces</option>
                               </select>
                             </div>
                             <div>
@@ -2157,6 +2158,7 @@ export default function ProductsByCategory() {
                                 <option value="kg">Kg</option>
                                 <option value="ml">ML</option>
                                 <option value="liters">Liters</option>
+                                <option value="pieces">Pieces</option>
                               </select>
                             </div>
                             <div>

@@ -18,7 +18,8 @@ import {
   DollarSign,
   Settings,
   Image,
-  Flame
+  Flame,
+  MessageSquare
 } from "lucide-react";
 import { fetchAllCategories } from "../service/service";
 
@@ -109,6 +110,9 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
       setActiveCategory("");
     } else if (currentPath.includes("/deals")) {
       setActiveModule("deals");
+      setActiveCategory("");
+    } else if (currentPath.includes("/sms-notifications")) {
+      setActiveModule("sms");
       setActiveCategory("");
     } else if (currentPath.includes("/gallery")) {
       setActiveModule("gallery");
@@ -332,6 +336,15 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
               >
                 <Flame className={`h-5 w-5 ${activeModule === "deals" ? "text-[#80A6F7]" : ""}`} />
                 {!collapsed && <span className="ml-2">Crazy Deals</span>}
+              </button>
+            </Link>
+
+            <Link href="/sms-notifications">
+              <button
+                className={getModuleClasses("sms")}
+              >
+                <MessageSquare className={`h-5 w-5 ${activeModule === "sms" ? "text-[#80A6F7]" : ""}`} />
+                {!collapsed && <span className="ml-2">Notifications</span>}
               </button>
             </Link>
 

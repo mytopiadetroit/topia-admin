@@ -781,12 +781,16 @@ const AnalyticsTab = () => {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      {product.image && (
+                      {product.image && product.image.length > 0 ? (
                         <img
-                          src={product.image}
+                          src={Array.isArray(product.image) ? product.image[0] : product.image}
                           alt={product.productName}
                           className="w-10 h-10 rounded-full object-cover"
                         />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 text-xs">No img</span>
+                        </div>
                       )}
                       <span className="font-medium">{product.productName}</span>
                     </div>
