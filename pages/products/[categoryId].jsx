@@ -1290,9 +1290,9 @@ export default function ProductsByCategory() {
                               >
                                 {product.isActive ? 'Active' : 'Inactive'}
                               </button>
-                              <button onClick={() => handleDeleteProduct(product._id)} className="text-red-600 hover:text-red-900 p-1" title="Delete Product">
+                              {/* <button onClick={() => handleDeleteProduct(product._id)} className="text-red-600 hover:text-red-900 p-1" title="Delete Product">
                                 <Trash2 className="h-4 w-4" />
-                              </button>
+                              </button> */}
                             </div>
                           </td>
                         </SortableItem>
