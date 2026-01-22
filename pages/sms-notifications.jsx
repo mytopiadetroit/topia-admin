@@ -22,7 +22,12 @@ import {
   sendBirthdaySMSManually,
   previewBirthdayUsers,
   searchUsersForSMS,
-  sendIndividualSMS
+  sendIndividualSMS,
+  fetchSMSReplies,
+  fetchSMSReplyStats,
+  respondToSMSReply,
+  updateSMSReplyStatus,
+  fetchSMSReplyDetails
 } from '../service/service';
 
 const messageTemplates = {
@@ -71,6 +76,22 @@ export default function SMSNotifications() {
   const [individualType, setIndividualType] = useState('custom');
   const [sendingIndividual, setSendingIndividual] = useState(false);
 
+  // SMS Replies state
+  const [smsReplies, setSmsReplies] = useState([]);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+  const [repliesCurrentPage, setRepliesCurrentPage] = useState(1);
+  const [repliesTotalPages, setRepliesTotalPages] = useState(1);
+  const [repliesStats, setRepliesStats] = useState(null);
+  const [repliesFilters, setRepliesFilters] = useState({
+    messageType: 'all',
+    status: 'all',
+    search: ''
+  });
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [selectedReply, setSelectedReply] = useState(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
     if (!token) {
@@ -83,8 +104,11 @@ export default function SMSNotifications() {
       fetchHistoryData();
     } else if (activeTab === 'stats') {
       fetchStatsData();
+    } else if (activeTab === 'replies') {
+      fetchRepliesData();
+      fetchRepliesStatsData();
     }
-  }, [activeTab, currentPage]);
+  }, [activeTab, currentPage, repliesCurrentPage]);
 
   const previewRecipientsHandler = async () => {
     setPreviewLoading(true);
@@ -205,12 +229,18 @@ export default function SMSNotifications() {
           title: 'Birthday Users Today',
           html: `
             <div class="text-left">
-              <p class="mb-2"><strong>${response.count} users</strong> have birthday today:</p>
+              <p class="mb-4"><strong>${response.count} users</strong> have birthday today:</p>
               ${response.users.slice(0, 10).map(u => `<p class="text-sm">🎂 ${u.fullName} - ${u.phone}</p>`).join('')}
               ${response.count > 10 ? `<p class="text-sm text-gray-500">...and ${response.count - 10} more</p>` : ''}
+              <hr class="my-4">
+              <div class="bg-blue-50 p-3 rounded">
+                <p class="text-sm font-semibold text-blue-800 mb-2">Birthday Message:</p>
+                <p class="text-sm text-blue-700">${response.message || '🎉 Happy Birthday [Name]! 🎂 Claim your special birthday gift at Shroomtopia today! Visit us or reply to redeem. - Shroomtopia Team'}</p>
+              </div>
             </div>
           `,
           confirmButtonColor: '#9333ea',
+          width: '600px'
         });
       }
     } catch (error) {
@@ -363,6 +393,120 @@ export default function SMSNotifications() {
     }
   };
 
+  // SMS Replies functions
+  const fetchRepliesData = async () => {
+    setRepliesLoading(true);
+    try {
+      const params = {
+        page: repliesCurrentPage,
+        limit: 20,
+        ...repliesFilters
+      };
+      
+      // Remove 'all' values
+      if (params.messageType === 'all') delete params.messageType;
+      if (params.status === 'all') delete params.status;
+      if (!params.search || params.search.trim() === '') delete params.search;
+      
+      const response = await fetchSMSReplies(router, params);
+      if (response.success) {
+        setSmsReplies(response.replies);
+        setRepliesTotalPages(response.totalPages);
+      }
+    } catch (error) {
+      console.error('Error fetching SMS replies:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to fetch SMS replies',
+        confirmButtonColor: '#ef4444',
+      });
+    } finally {
+      setRepliesLoading(false);
+    }
+  };
+
+  const fetchRepliesStatsData = async () => {
+    try {
+      const response = await fetchSMSReplyStats(router);
+      if (response.success) {
+        setRepliesStats(response.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching SMS reply stats:', error);
+    }
+  };
+
+  const handleReplyToSMS = async () => {
+    if (!replyMessage.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Message Required',
+        text: 'Please enter a reply message',
+        confirmButtonColor: '#9333ea',
+      });
+      return;
+    }
+
+    setSendingReply(true);
+    try {
+      const response = await respondToSMSReply(selectedReply._id, replyMessage, router);
+      if (response.success) {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Reply Sent!',
+          text: 'Your reply has been sent successfully',
+          confirmButtonColor: '#9333ea',
+          timer: 2000,
+        });
+        setShowReplyModal(false);
+        setReplyMessage('');
+        setSelectedReply(null);
+        fetchRepliesData(); // Refresh the list
+      }
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: error.message || 'Failed to send reply',
+        confirmButtonColor: '#ef4444',
+      });
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const updateReplyStatus = async (replyId, status) => {
+    try {
+      const response = await updateSMSReplyStatus(replyId, status, router);
+      if (response.success) {
+        fetchRepliesData(); // Refresh the list
+        Swal.fire({
+          icon: 'success',
+          title: 'Status Updated',
+          text: `Reply marked as ${status}`,
+          confirmButtonColor: '#9333ea',
+          timer: 1500,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to update status',
+        confirmButtonColor: '#ef4444',
+      });
+    }
+  };
+
+  const openReplyModal = (reply) => {
+    setSelectedReply(reply);
+    setShowReplyModal(true);
+    setReplyMessage('');
+  };
+
   return (
     <>
       <Sidebar />
@@ -396,9 +540,18 @@ export default function SMSNotifications() {
               <button
                 onClick={sendBirthdaySMSHandler}
                 disabled={birthdayLoading}
-                className="bg-[#80A6F7] text-white px-6 py-2 rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 transition-all flex items-center gap-2 shadow-lg"
+                className="bg-[#80A6F7] text-white px-6 py-2 rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-lg"
               >
-                🎂 Send Birthday SMS
+                {birthdayLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    🎂 Send Birthday SMS
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -438,6 +591,17 @@ export default function SMSNotifications() {
               >
                 <TrendingUp className="w-5 h-5" />
                 Statistics
+              </button>
+              <button
+                onClick={() => setActiveTab('replies')}
+                className={`px-6 py-4 font-semibold transition-all flex items-center gap-2 ${
+                  activeTab === 'replies'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                <MessageSquare className="w-5 h-5" />
+                SMS Replies
               </button>
             </div>
           </div>
@@ -775,8 +939,363 @@ export default function SMSNotifications() {
             </div>
           </div>
         )}
+
+        {/* SMS Replies Tab */}
+        {activeTab === 'replies' && (
+          <div className="space-y-6">
+            {/* Stats Overview */}
+            {repliesStats && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-blue-600 rounded-xl shadow-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold opacity-90">Total Replies</h3>
+                    <MessageSquare className="w-8 h-8 opacity-80" />
+                  </div>
+                  <p className="text-4xl font-extrabold">{repliesStats.totalReplies.toLocaleString()}</p>
+                </div>
+                
+                <div className="bg-red-600 rounded-xl shadow-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold opacity-90">Opt-Outs</h3>
+                    <XCircle className="w-8 h-8 opacity-80" />
+                  </div>
+                  <p className="text-4xl font-extrabold">{repliesStats.optOutCount.toLocaleString()}</p>
+                </div>
+                
+                <div className="bg-green-600 rounded-xl shadow-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold opacity-90">Processed</h3>
+                    <CheckCircle className="w-8 h-8 opacity-80" />
+                  </div>
+                  <p className="text-4xl font-extrabold">
+                    {repliesStats.byStatus.find(s => s._id === 'processed')?.count || 0}
+                  </p>
+                </div>
+                
+                <div className="bg-purple-600 rounded-xl shadow-lg p-6 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold opacity-90">Pending</h3>
+                    <Clock className="w-8 h-8 opacity-80" />
+                  </div>
+                  <p className="text-4xl font-extrabold">
+                    {repliesStats.byStatus.find(s => s._id === 'received')?.count || 0}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Filters */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+                <button
+                  onClick={() => {
+                    setRepliesFilters({ messageType: 'all', status: 'all', search: '' });
+                    setRepliesCurrentPage(1);
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Message Type</label>
+                  <select
+                    value={repliesFilters.messageType}
+                    onChange={(e) => {
+                      setRepliesFilters({...repliesFilters, messageType: e.target.value});
+                      setRepliesCurrentPage(1);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="reply">Regular Reply</option>
+                    <option value="opt_out">Opt Out</option>
+                    <option value="opt_in">Opt In</option>
+                    <option value="help">Help Request</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+                  <select
+                    value={repliesFilters.status}
+                    onChange={(e) => {
+                      setRepliesFilters({...repliesFilters, status: e.target.value});
+                      setRepliesCurrentPage(1);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="received">Received</option>
+                    <option value="processed">Processed</option>
+                    <option value="responded">Responded</option>
+                    <option value="ignored">Ignored</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Search</label>
+                  <input
+                    type="text"
+                    value={repliesFilters.search}
+                    onChange={(e) => setRepliesFilters({...repliesFilters, search: e.target.value})}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        setRepliesCurrentPage(1);
+                        fetchRepliesData();
+                      }
+                    }}
+                    placeholder="Search messages, names, phones..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                
+                <div className="flex items-end gap-2">
+                  <button
+                    onClick={() => {
+                      setRepliesCurrentPage(1);
+                      fetchRepliesData();
+                    }}
+                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all"
+                  >
+                    Apply Filters
+                  </button>
+                  <button
+                    onClick={fetchRepliesData}
+                    className="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-all"
+                    title="Refresh"
+                  >
+                    🔄
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Replies List */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="p-6 bg-[#80A6F7] rounded-t-xl">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                  <MessageSquare className="w-6 h-6" />
+                  SMS Replies
+                </h2>
+                <p className="text-blue-100 mt-1">View and respond to customer SMS replies</p>
+              </div>
+              
+              <div className="p-6">
+                {repliesLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading replies...</p>
+                  </div>
+                ) : smsReplies.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-700 mb-2">No SMS Replies</h3>
+                    <p className="text-gray-500">No SMS replies found matching your criteria</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      {smsReplies.map((reply) => (
+                        <div key={reply._id} className="border border-gray-200 rounded-xl p-4 hover:bg-blue-50 transition-colors">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-gray-900">
+                                    {reply.userName || 'Unknown User'}
+                                  </span>
+                                  <span className="text-sm text-gray-600">
+                                    {reply.userPhone}
+                                  </span>
+                                </div>
+                                
+                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                  reply.messageType === 'opt_out' ? 'bg-red-100 text-red-800' :
+                                  reply.messageType === 'opt_in' ? 'bg-green-100 text-green-800' :
+                                  reply.messageType === 'help' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {reply.messageType.replace('_', ' ').toUpperCase()}
+                                </span>
+                                
+                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                  reply.status === 'received' ? 'bg-gray-100 text-gray-800' :
+                                  reply.status === 'processed' ? 'bg-blue-100 text-blue-800' :
+                                  reply.status === 'responded' ? 'bg-green-100 text-green-800' :
+                                  'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {reply.status.toUpperCase()}
+                                </span>
+                              </div>
+                              
+                              <p className="text-gray-700 mb-2 bg-gray-50 p-3 rounded-lg">
+                                "{reply.body}"
+                              </p>
+                              
+                              <div className="flex items-center gap-4 text-sm text-gray-500">
+                                <span>
+                                  {new Date(reply.receivedAt).toLocaleString()}
+                                </span>
+                                {reply.adminResponse && (
+                                  <span className="text-green-600 font-medium">
+                                    ✓ Responded
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {reply.adminResponse && (
+                                <div className="mt-3 bg-green-50 border-l-4 border-green-400 p-3 rounded">
+                                  <p className="text-sm text-green-800">
+                                    <strong>Admin Response:</strong> {reply.adminResponse.message}
+                                  </p>
+                                  <p className="text-xs text-green-600 mt-1">
+                                    Sent {new Date(reply.adminResponse.sentAt).toLocaleString()}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex flex-col gap-2 ml-4">
+                              {!reply.adminResponse && reply.status !== 'ignored' && (
+                                <button
+                                  onClick={() => openReplyModal(reply)}
+                                  className="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all"
+                                >
+                                  Reply
+                                </button>
+                              )}
+                              
+                              {reply.status === 'received' && (
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => updateReplyStatus(reply._id, 'processed')}
+                                    className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-green-700 transition-all"
+                                  >
+                                    Mark Processed
+                                  </button>
+                                  <button
+                                    onClick={() => updateReplyStatus(reply._id, 'ignored')}
+                                    className="bg-gray-600 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-gray-700 transition-all"
+                                  >
+                                    Ignore
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {repliesTotalPages > 1 && (
+                      <div className="flex justify-center items-center gap-3 mt-6">
+                        <button
+                          onClick={() => setRepliesCurrentPage(p => Math.max(1, p - 1))}
+                          disabled={repliesCurrentPage === 1}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
+                        >
+                          Previous
+                        </button>
+                        <span className="px-4 py-2 bg-gray-100 rounded-lg font-semibold text-gray-700">
+                          Page {repliesCurrentPage} of {repliesTotalPages}
+                        </span>
+                        <button
+                          onClick={() => setRepliesCurrentPage(p => Math.min(repliesTotalPages, p + 1))}
+                          disabled={repliesCurrentPage === repliesTotalPages}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
+      
+      {/* Reply Modal */}
+      {showReplyModal && selectedReply && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full">
+            <div className="sticky top-0 bg-[#80A6F7] px-6 py-4 flex items-center justify-between rounded-t-2xl">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                <MessageSquare className="w-6 h-6" />
+                Reply to SMS
+              </h2>
+              <button
+                onClick={() => {
+                  setShowReplyModal(false);
+                  setSelectedReply(null);
+                  setReplyMessage('');
+                }}
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Original Message */}
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="font-semibold text-gray-900 mb-2">Original Message</h3>
+                <div className="text-sm text-gray-600 mb-2">
+                  From: {selectedReply.userName || 'Unknown'} ({selectedReply.userPhone})
+                </div>
+                <div className="text-sm text-gray-600 mb-2">
+                  Received: {new Date(selectedReply.receivedAt).toLocaleString()}
+                </div>
+                <p className="text-gray-700 bg-white p-3 rounded-lg border">
+                  "{selectedReply.body}"
+                </p>
+              </div>
+
+              {/* Reply Message */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Your Reply ({replyMessage.length}/1600)
+                </label>
+                <textarea
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  maxLength={1600}
+                  rows={6}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  placeholder="Type your reply here..."
+                />
+              </div>
+
+              {/* Send Button */}
+              <button
+                onClick={handleReplyToSMS}
+                disabled={sendingReply || !replyMessage.trim()}
+                className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 disabled:bg-gray-400 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+              >
+                {sendingReply ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5" />
+                    Send Reply
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Detail Modal */}
       {showDetailModal && selectedSMS && (

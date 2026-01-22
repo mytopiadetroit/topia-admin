@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 // import { toast } from 'react-toastify';
 import { fetchAllOrders, updateOrderStatusApi, archiveOrderApi, toast, fetchUserById } from '../../service/service';
@@ -11,9 +11,11 @@ export default function AdminOrders() {
   const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -21,34 +23,112 @@ export default function AdminOrders() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [selectedStatus, page]);
+  // Ref for infinite scroll
+  const observerRef = useRef();
+  const lastOrderElementRef = useRef();
 
-  const fetchOrders = async () => {
+  // Load orders with infinite scroll support
+  const loadOrders = useCallback(async (pageNum = 1, append = false) => {
     try {
-      setLoading(true);
-      const response = await fetchAllOrders(router, { page, limit: 10, status: selectedStatus });
-      console.log('=== FETCH ORDERS RESPONSE ===');
-      console.log('Full Response:', response);
-      if (response.success && response.data.length > 0) {
-        console.log('First Order Items:', response.data[0].items);
-        console.log('First Item Details:', response.data[0].items[0]);
+      console.log(`Loading orders - Page: ${pageNum}, Append: ${append}`);
+      
+      if (pageNum === 1) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
       }
-      console.log('============================');
+
+      const params = {
+        page: pageNum,
+        limit: 30, // Load 30 orders per request
+        status: selectedStatus === 'all' ? undefined : selectedStatus,
+        infiniteScroll: 'true'
+      };
+
+      console.log('API params:', params);
+
+      const response = await fetchAllOrders(router, params);
+      console.log('API response:', response);
+      
       if (response.success) {
-        setOrders(response.data);
-        if (response.meta) setTotalPages(response.meta.totalPages || 1);
+        const newOrders = response.data || [];
+        console.log(`Received ${newOrders.length} orders`);
+        
+        if (append && pageNum > 1) {
+          // Append new orders to existing list
+          setOrders(prevOrders => {
+            const combined = [...prevOrders, ...newOrders];
+            console.log(`Total orders after append: ${combined.length}`);
+            return combined;
+          });
+        } else {
+          // Replace orders list (for initial load or filter change)
+          setOrders(newOrders);
+          console.log(`Set orders to ${newOrders.length} orders`);
+        }
+        
+        if (response.meta) {
+          setHasMore(response.meta.page < response.meta.totalPages);
+          setTotalOrders(response.meta.total || 0);
+          console.log(`HasMore: ${response.meta.page < response.meta.totalPages}, Total: ${response.meta.total}`);
+        }
       } else {
         Swal.fire({ icon: 'error', title: 'Error', text: response.message || 'Failed to load orders' });
       }
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      console.error('Error loading orders:', error);
       Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load orders' });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, [selectedStatus, router]);
+
+  // Load more orders for infinite scroll
+  const loadMoreOrders = useCallback(() => {
+    console.log(`loadMoreOrders called - loadingMore: ${loadingMore}, hasMore: ${hasMore}, page: ${page}`);
+    if (!loadingMore && hasMore) {
+      const nextPage = page + 1;
+      console.log(`Loading page ${nextPage}`);
+      setPage(nextPage);
+      loadOrders(nextPage, true);
+    }
+  }, [loadingMore, hasMore, page, loadOrders]);
+
+  // Intersection Observer for infinite scroll
+  const lastOrderElementRefCallback = useCallback((node) => {
+    if (loading || loadingMore) return;
+    if (observerRef.current) observerRef.current.disconnect();
+    
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        console.log('Loading more orders...');
+        loadMoreOrders();
+      }
+    }, {
+      threshold: 0.1,
+      rootMargin: '50px'
+    });
+    
+    if (node) observerRef.current.observe(node);
+  }, [loading, loadingMore, hasMore, loadMoreOrders]);
+
+  // Initial load and filter changes
+  useEffect(() => {
+    setPage(1);
+    setOrders([]);
+    setHasMore(true);
+    loadOrders(1, false);
+  }, [selectedStatus]);
+
+  // Cleanup intersection observer on unmount
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
 
   const updateOrderStatus = async (orderId, newStatus) => {
     const textMap = {
@@ -71,7 +151,15 @@ export default function AdminOrders() {
       const response = await updateOrderStatusApi(orderId, newStatus, router);
       if (response.success) {
         await Swal.fire({ icon: 'success', title: 'Updated', text: 'Order status updated', timer: 1200, showConfirmButton: false });
-        fetchOrders();
+        
+        // Update the order in the current list instead of reloading
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order._id === orderId 
+              ? { ...order, status: newStatus }
+              : order
+          )
+        );
       } else {
         Swal.fire({ icon: 'error', title: 'Error', text: response.message || 'Failed to update status' });
       }
@@ -99,7 +187,10 @@ export default function AdminOrders() {
       const response = await archiveOrderApi(orderId, router);
       if (response.success) {
         await Swal.fire({ icon: 'success', title: 'Archived', text: 'Order archived successfully', timer: 1200, showConfirmButton: false });
-        fetchOrders();
+        
+        // Remove the archived order from the current list
+        setOrders(prevOrders => prevOrders.filter(order => order._id !== orderId));
+        setTotalOrders(prev => prev - 1);
       } else {
         Swal.fire({ icon: 'error', title: 'Error', text: response.message || 'Failed to archive order' });
       }
@@ -194,9 +285,6 @@ export default function AdminOrders() {
     );
   };
 
-  const filteredOrders = selectedStatus === 'all' 
-    ? orders 
-    : orders.filter(order => order.status === selectedStatus);
 
   if (loading) {
     return (
@@ -274,7 +362,7 @@ export default function AdminOrders() {
             ].map(tab => (
               <button
                 key={tab.key}
-                onClick={() => { setSelectedStatus(tab.key); setPage(1); }}
+                onClick={() => setSelectedStatus(tab.key)}
                 className={`px-4 py-2 rounded-lg border ${selectedStatus === tab.key ? 'bg-[#536690] text-white border-[#536690]' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
               >
                 {tab.label}
@@ -310,8 +398,12 @@ export default function AdminOrders() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                 {filteredOrders.map((order) => (
-                  <tr key={order._id} className="hover:bg-gray-50">
+                 {orders.map((order, index) => (
+                  <tr 
+                    key={order._id} 
+                    className="hover:bg-gray-50"
+                    ref={index === orders.length - 1 ? lastOrderElementRefCallback : null}
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
@@ -399,36 +491,50 @@ export default function AdminOrders() {
                     </td>
                   </tr>
                 ))}
+                
+                {/* Loading row for infinite scroll */}
+                {loadingMore && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#536690]"></div>
+                        <span className="text-sm text-gray-600">Loading more orders...</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* Load More button as fallback */}
+                {!loadingMore && hasMore && orders.length > 0 && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 text-center">
+                      <button
+                        onClick={loadMoreOrders}
+                        className="px-4 py-2 bg-[#536690] text-white rounded-md hover:bg-[#4a5a7a] focus:outline-none focus:ring-2 focus:ring-[#536690] focus:ring-offset-2"
+                      >
+                        Load More Orders
+                      </button>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* End of data indicator */}
+                {!hasMore && !loading && orders.length > 0 && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
+                      All orders loaded ({totalOrders} total)
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
           
-          {filteredOrders.length === 0 && (
+          {orders.length === 0 && !loading && (
             <div className="text-center py-12">
               <p className="text-gray-500 text-lg">No orders found</p>
             </div>
           )}
-        </div>
-
-        {/* Pagination under table */}
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600">Page {page} of {totalPages}</div>
-          <div className="space-x-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className={`px-3 py-2 rounded border ${page === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className={`px-3 py-2 rounded border ${page === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Next
-            </button>
-          </div>
         </div>
 
         {/* Summary */}
@@ -436,26 +542,26 @@ export default function AdminOrders() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-[#536690]">{orders.length}</div>
+              <div className="text-2xl font-bold text-[#536690]">{totalOrders}</div>
               <div className="text-sm text-gray-600">Total Orders</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">
                 {orders.filter(o => o.status === 'pending').length}
               </div>
-              <div className="text-sm text-gray-600">Pending</div>
+              <div className="text-sm text-gray-600">Pending (Loaded)</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {orders.filter(o => o.status === 'delivered').length}
+                {orders.filter(o => o.status === 'completed').length}
               </div>
-              <div className="text-sm text-gray-600">Delivered</div>
+              <div className="text-sm text-gray-600">Completed (Loaded)</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">
                 ${orders.reduce((total, order) => total + order.totalAmount, 0).toFixed(2)}
               </div>
-              <div className="text-sm text-gray-600">Total Revenue</div>
+              <div className="text-sm text-gray-600">Revenue (Loaded)</div>
             </div>
           </div>
         </div>

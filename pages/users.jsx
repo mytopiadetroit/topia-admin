@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../components/sidebar';
 import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin, updateUser, fetchUserNotes, createUserNote, updateUserNote, deleteUserNote, adminCheckInUser, fetchVisitorByUserId } from '../service/service';
@@ -28,13 +28,15 @@ export default function UsersPage() {
   // State for data and UI
 
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTimeout, setSearchTimeout] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   // UI State
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -77,51 +79,120 @@ export default function UsersPage() {
     }
   });
 
+  // Ref for infinite scroll
+  const observerRef = useRef();
+  const lastUserElementRef = useRef();
+
   const router = useRouter();
 
-  // Load users when page or filters change
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadUsers = async () => {
-      try {
+  // Load users with infinite scroll support
+  const loadUsers = useCallback(async (pageNum = 1, append = false) => {
+    try {
+      console.log(`Loading users - Page: ${pageNum}, Append: ${append}`);
+      
+      if (pageNum === 1) {
         setLoading(true);
-        const params = {
-          page,
-          limit: 10,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          search: searchTerm
-        };
+      } else {
+        setLoadingMore(true);
+      }
 
-        const response = await fetchAllUsers(router, params);
-        if (response.success) {
-          setUsers(response.data || []);
-          if (response.meta) {
-            setTotalPages(response.meta.totalPages || 1);
-          }
+      const params = {
+        page: pageNum,
+        limit: 50, // Always load 50 users per request
+        status: filterStatus === 'all' ? undefined : filterStatus,
+        search: searchTerm,
+        infiniteScroll: 'true'
+      };
+
+      console.log('API params:', params);
+
+      const response = await fetchAllUsers(router, params);
+      console.log('API response:', response);
+      
+      if (response.success) {
+        const newUsers = response.data || [];
+        console.log(`Received ${newUsers.length} users`);
+        
+        if (append && pageNum > 1) {
+          // Append new users to existing list
+          setUsers(prevUsers => {
+            const combined = [...prevUsers, ...newUsers];
+            console.log(`Total users after append: ${combined.length}`);
+            return combined;
+          });
         } else {
-          toast.error('Failed to load users');
+          // Replace users list (for initial load or filter change)
+          setUsers(newUsers);
+          console.log(`Set users to ${newUsers.length} users`);
         }
-      } catch (error) {
-        console.error('Error loading users:', error);
-        toast.error('Error loading users');
-      } finally {
-        setLoading(false);
+        
+        if (response.meta) {
+          setHasMore(response.meta.hasMore || false);
+          setTotalUsers(response.meta.total || 0);
+          console.log(`HasMore: ${response.meta.hasMore}, Total: ${response.meta.total}`);
+        }
+      } else {
+        toast.error('Failed to load users');
       }
-    };
+    } catch (error) {
+      console.error('Error loading users:', error);
+      toast.error('Error loading users');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+      if (isInitialLoad) setIsInitialLoad(false);
+    }
+  }, [filterStatus, searchTerm, router, isInitialLoad]);
 
-    loadUsers();
+  // Load more users for infinite scroll
+  const loadMoreUsers = useCallback(() => {
+    console.log(`loadMoreUsers called - loadingMore: ${loadingMore}, hasMore: ${hasMore}, page: ${page}`);
+    if (!loadingMore && hasMore) {
+      const nextPage = page + 1;
+      console.log(`Loading page ${nextPage}`);
+      setPage(nextPage);
+      loadUsers(nextPage, true);
+    }
+  }, [loadingMore, hasMore, page, loadUsers]);
 
+  // Intersection Observer for infinite scroll
+  const lastUserElementRefCallback = useCallback((node) => {
+    if (loading || loadingMore) return;
+    if (observerRef.current) observerRef.current.disconnect();
+    
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        console.log('Loading more users...');
+        loadMoreUsers();
+      }
+    }, {
+      threshold: 0.1,
+      rootMargin: '50px'
+    });
+    
+    if (node) observerRef.current.observe(node);
+  }, [loading, loadingMore, hasMore, loadMoreUsers]);
+
+  // Initial load and filter changes
+  useEffect(() => {
+    setPage(1);
+    setUsers([]);
+    setHasMore(true);
+    loadUsers(1, false);
+  }, [filterStatus, searchTerm]);
+
+  // Cleanup intersection observer on unmount
+  useEffect(() => {
     return () => {
-      controller.abort();
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
+      if (observerRef.current) {
+        observerRef.current.disconnect();
       }
     };
-  }, [page, filterStatus, searchTerm]);
+  }, []);
 
   const handleSearch = useCallback((e) => {
     const value = e.target.value;
+    setSearchInput(value);
 
     // Clear previous timeout
     if (searchTimeout) {
@@ -130,7 +201,7 @@ export default function UsersPage() {
 
     // Set a new timeout
     const newTimeout = setTimeout(() => {
-      setSearchTerm(value); // Move searchTerm update inside timeout
+      setSearchTerm(value);
       setPage(1);
     }, 500);
 
@@ -138,53 +209,9 @@ export default function UsersPage() {
   }, [searchTimeout]);
 
   // Memoize filtered users to prevent unnecessary re-renders
-  const filteredUsers = useMemo(() =>
-    users.filter(user => filterRole === 'all' || user.role === filterRole),
-    [users, filterRole]
-  );
-
-  // Handle delete user
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const params = {
-          page,
-          limit: 10,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          search: searchTerm
-        };
-
-        const response = await fetchAllUsers(router, params);
-
-        if (response.success) {
-          setUsers(response.data || []);
-          if (response.meta) {
-            setTotalPages(response.meta.totalPages || 1);
-          }
-        }
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.error('Error loading users:', error);
-          toast.error('Error loading users');
-        }
-      } finally {
-        setLoading(false);
-        if (isInitialLoad) setIsInitialLoad(false);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      controller.abort();
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-      }
-    };
-  }, [page, filterStatus, searchTerm, isInitialLoad]);
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => filterRole === 'all' || user.role === filterRole);
+  }, [users, filterRole]);
 
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
@@ -192,7 +219,9 @@ export default function UsersPage() {
         const response = await deleteUser(userId, router);
         if (response.success) {
           toast.success('User deleted successfully');
-          loadUsers(); // Reload the list
+          // Remove user from current list instead of reloading
+          setUsers(prevUsers => prevUsers.filter(user => user._id !== userId));
+          setTotalUsers(prev => prev - 1);
         } else {
           toast.error('Failed to delete user');
         }
@@ -647,20 +676,14 @@ export default function UsersPage() {
         });
         handleCloseAdjustPointsModal();
         
-        // Refresh users list
-        const usersResponse = await fetchAllUsers(router, {
-          page,
-          limit: 10,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          search: searchTerm
-        });
-        
-        if (usersResponse.success) {
-          setUsers(usersResponse.data || []);
-          if (usersResponse.meta) {
-            setTotalPages(usersResponse.meta.totalPages || 1);
-          }
-        }
+        // Update the user in the current list instead of reloading
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user._id === selectedUser._id 
+              ? { ...user, rewardPoints: data.user?.rewardPoints || user.rewardPoints }
+              : user
+          )
+        );
       } else {
         toast.error(data.message || 'Failed to adjust points');
       }
@@ -703,20 +726,12 @@ export default function UsersPage() {
         setSelectedUser(response.data);
         setIsEditMode(false);
         
-        // Refresh users list
-        const usersResponse = await fetchAllUsers(router, {
-          page,
-          limit: 10,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          search: searchTerm
-        });
-        
-        if (usersResponse.success) {
-          setUsers(usersResponse.data || []);
-          if (usersResponse.meta) {
-            setTotalPages(usersResponse.meta.totalPages || 1);
-          }
-        }
+        // Update the user in the current list instead of reloading
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user._id === selectedUser._id ? response.data : user
+          )
+        );
       } else {
         throw new Error(response.message || 'Failed to update user');
       }
@@ -844,20 +859,14 @@ export default function UsersPage() {
             timerProgressBar: true
           });
           
-          // Refresh the users list
-          const response = await fetchAllUsers(router, {
-            page,
-            limit: 10,
-            status: filterStatus === 'all' ? undefined : filterStatus,
-            search: searchTerm
-          });
-
-          if (response.success) {
-            setUsers(response.data || []);
-            if (response.meta) {
-              setTotalPages(response.meta.totalPages || 1);
-            }
-          }
+          // Update users in current list instead of reloading
+          setUsers(prevUsers => 
+            prevUsers.map(user => 
+              selectedUsers.includes(user._id) 
+                ? { ...user, status: bulkStatus }
+                : user
+            )
+          );
           
           // Reset selection
           setSelectedUsers([]);
@@ -945,20 +954,14 @@ export default function UsersPage() {
           timer: 2000,
           timerProgressBar: true
         });
-        // Refresh the users list after successful status update
-        const response = await fetchAllUsers(router, {
-          page,
-          limit: 10,
-          status: filterStatus === 'all' ? undefined : filterStatus,
-          search: searchTerm
-        });
-
-        if (response.success) {
-          setUsers(response.data || []);
-          if (response.meta) {
-            setTotalPages(response.meta.totalPages || 1);
-          }
-        }
+        // Update user in current list instead of reloading
+        setUsers(prevUsers => 
+          prevUsers.map(user => 
+            user._id === userId 
+              ? { ...user, status: status, suspensionReason: status === 'suspend' ? suspensionReason : '' }
+              : user
+          )
+        );
       } else {
         // Show error message with SweetAlert2
         await Swal.fire({
@@ -1102,12 +1105,6 @@ export default function UsersPage() {
                     setSearchInput(e.target.value); // Update local state immediately
                     handleSearch(e); // Debounced search
                   }}
-                  onKeyPress={(e) => e.key === 'Enter' && fetchAllUsers(router, {
-                    page,
-                    limit: 10,
-                    status: filterStatus === 'all' ? undefined : filterStatus,
-                    search: searchInput
-                  })}
                 />
               </div>
 
@@ -1117,7 +1114,7 @@ export default function UsersPage() {
                   value={filterRole}
                   onChange={(e) => {
                     setFilterRole(e.target.value);
-                    setPage(1); // Reset to page 1 when filter changes
+                    // No need to reset page for role filter since it's client-side
                   }}
                 >
                   <option value="all">All Roles</option>
@@ -1132,7 +1129,7 @@ export default function UsersPage() {
                   value={filterStatus}
                   onChange={(e) => {
                     setFilterStatus(e.target.value);
-                    setPage(1); // Reset to page 1 when filter changes
+                    // This will trigger useEffect to reload users
                   }}
                 >
                   {statusOptions.map((option) => (
@@ -1155,7 +1152,7 @@ export default function UsersPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <div className="flex items-center">
                       <input
                         type="checkbox"
@@ -1166,30 +1163,34 @@ export default function UsersPage() {
                       User
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contact
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Rewards
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Points
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Joined
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user._id} className={`hover:bg-gray-50 ${selectedUsers.includes(user._id) ? 'bg-blue-50' : ''}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                {filteredUsers.map((user, index) => (
+                  <tr 
+                    key={user._id} 
+                    className={`hover:bg-gray-50 ${selectedUsers.includes(user._id) ? 'bg-blue-50' : ''}`}
+                    ref={index === filteredUsers.length - 1 ? lastUserElementRefCallback : null}
+                  >
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <input
                           type="checkbox"
@@ -1197,62 +1198,62 @@ export default function UsersPage() {
                           onChange={() => toggleUserSelection(user._id)}
                           className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-3"
                         />
-                        <div className="flex-shrink-0 h-10 w-10">
-                          {user.avatar ? (
-                            <img
-                              className="h-10 w-10 rounded-full"
-                              src={user.avatar}
-                              alt={user.fullName}
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-blue-600 font-medium">
-                                {user.fullName?.charAt(0)?.toUpperCase()}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.fullName}
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            {user.avatar ? (
+                              <img
+                                className="h-10 w-10 rounded-full"
+                                src={user.avatar}
+                                alt={user.fullName}
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <span className="text-blue-600 font-bold text-sm">
+                                  {user.fullName?.charAt(0)?.toUpperCase()}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          <button
-                            onClick={() => handleManualCheckIn(user._id, user.fullName)}
-                            className="mt-1 px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-1 transition-colors shadow-sm"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Check-In
-                          </button>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.fullName}
+                            </div>
+                            <button
+                              onClick={() => handleManualCheckIn(user._id, user.fullName)}
+                              className="mt-1 px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md font-medium flex items-center gap-1 transition-colors shadow-sm"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Check-In
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{user.email}</div>
                       <div className="text-sm text-gray-500">{user.phone}</div>
                     </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       {getRoleBadge(user.role)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       {getStatusBadge(user.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <svg className="h-4 w-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-sm font-medium text-green-600">
-                          ${user.rewardPoints || 0}
-                        </span>
+                        <span className="text-sm font-medium text-gray-900">${user.rewardPoints || 0}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(user.createdAt)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleViewUser(user._id)}
@@ -1282,117 +1283,81 @@ export default function UsersPage() {
                     </td>
                   </tr>
                 ))}
+                
+                {/* Loading row for infinite scroll */}
+                {loadingMore && (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-4 text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-sm text-gray-600">Loading more users...</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* Load More button as fallback */}
+                {!loadingMore && hasMore && filteredUsers.length > 0 && (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-4 text-center">
+                      <button
+                        onClick={loadMoreUsers}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      >
+                        Load More Users
+                      </button>
+                    </td>
+                  </tr>
+                )}
+                
+                {/* End of data indicator */}
+                {!hasMore && !loading && filteredUsers.length > 0 && (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-4 text-center text-sm text-gray-500">
+                      All users loaded ({totalUsers} total)
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12">
-              <Users className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || filterRole !== 'all'
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'Get started by adding a new user.'
-                }
-              </p>
-            </div>
-          )}
         </div>
 
-        {/* Pagination inside table area */}
+        {/* No users found message */}
+        {filteredUsers.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <Users className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchTerm || filterRole !== 'all'
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Get started by adding a new user.'
+              }
+            </p>
+          </div>
+        )}
+
+        {/* Infinite Scroll Info */}
         <div className="px-4 py-3 bg-white border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-600">
-            Showing page {page} of {totalPages}
+            Showing {filteredUsers.length} of {totalUsers} users
+            {hasMore && (
+              <span className="text-blue-600 ml-1">(scroll down to load more)</span>
+            )}
           </div>
           
-          {/* Page selection dropdown for mobile */}
-          <div className="sm:hidden w-full">
-            <div className="flex items-center justify-center space-x-2">
-              <span className="text-sm text-gray-600">Go to page:</span>
-              <select
-                value={page}
-                onChange={(e) => setPage(Number(e.target.value))}
-                className="block w-20 px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <option key={pageNum} value={pageNum}>
-                    {pageNum}
-                  </option>
-                ))}
-              </select>
+          {loadingMore && (
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span>Loading more users...</span>
             </div>
-          </div>
+          )}
           
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className={`px-3 py-1.5 rounded border ${page === 1 ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Previous
-            </button>
-            
-            {/* Page numbers - only show on larger screens */}
-            <div className="hidden sm:flex items-center space-x-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                // Show first 2 pages, current page, and last 2 pages
-                let pageNum;
-                if (page <= 3) {
-                  pageNum = i + 1;
-                } else if (page >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = page - 2 + i;
-                }
-                
-                if (pageNum > 0 && pageNum <= totalPages) {
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setPage(pageNum)}
-                      className={`w-8 h-8 flex items-center justify-center rounded ${page === pageNum
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                }
-                return null;
-              })}
-              
-              {/* Page dropdown for desktop */}
-              {totalPages > 5 && (
-                <div className="relative ml-1">
-                  <select
-                    value={page}
-                    onChange={(e) => setPage(Number(e.target.value))}
-                    className="appearance-none pl-2 pr-8 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                      <option key={pageNum} value={pageNum}>
-                        {pageNum}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                </div>
-              )}
+          {!hasMore && totalUsers > 0 && (
+            <div className="text-sm text-green-600 font-medium">
+              ✓ All users loaded
             </div>
-            
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className={`px-3 py-1.5 rounded border ${page === totalPages ? 'text-gray-400 border-gray-200' : 'text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Next
-            </button>
-          </div>
+          )}
         </div>
       </div>
 

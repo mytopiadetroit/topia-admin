@@ -5,7 +5,7 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-      // const ConstantsUrl = "http://localhost:5000/api/";
+    //  const ConstantsUrl = "http://localhost:5000/api/";
     const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
@@ -1162,6 +1162,52 @@ const sendIndividualSMS = async (data, router) => {
   }
 };
 
+// SMS Reply helpers
+const fetchSMSReplies = async (router, params = {}) => {
+  try {
+    return await Api('get', 'sms-replies', null, router, params);
+  } catch (error) {
+    console.error('Error fetching SMS replies:', error);
+    throw error;
+  }
+};
+
+const fetchSMSReplyStats = async (router) => {
+  try {
+    return await Api('get', 'sms-replies/stats', null, router);
+  } catch (error) {
+    console.error('Error fetching SMS reply stats:', error);
+    throw error;
+  }
+};
+
+const respondToSMSReply = async (replyId, message, router) => {
+  try {
+    return await Api('post', `sms-replies/${replyId}/respond`, { message }, router);
+  } catch (error) {
+    console.error('Error responding to SMS reply:', error);
+    throw error;
+  }
+};
+
+const updateSMSReplyStatus = async (replyId, status, router) => {
+  try {
+    return await Api('patch', `sms-replies/${replyId}/status`, { status }, router);
+  } catch (error) {
+    console.error('Error updating SMS reply status:', error);
+    throw error;
+  }
+};
+
+const fetchSMSReplyDetails = async (replyId, router) => {
+  try {
+    return await Api('get', `sms-replies/${replyId}`, null, router);
+  } catch (error) {
+    console.error('Error fetching SMS reply details:', error);
+    throw error;
+  }
+};
+
 export {
   Api,
   timeSince,
@@ -1266,7 +1312,12 @@ export {
   sendBirthdaySMSManually,
   previewBirthdayUsers,
   searchUsersForSMS,
-  sendIndividualSMS
+  sendIndividualSMS,
+  fetchSMSReplies,
+  fetchSMSReplyStats,
+  respondToSMSReply,
+  updateSMSReplyStatus,
+  fetchSMSReplyDetails
 };
 
 // User Notes Management helpers
