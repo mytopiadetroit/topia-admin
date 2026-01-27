@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 // import { toast } from 'react-toastify';
-import { fetchAllOrders, updateOrderStatusApi, archiveOrderApi, toast, fetchUserById } from '../../../service/service';
+import { fetchAllOrders, updateOrderStatusApi, archiveOrderApi, toast, fetchUserById, fetchUserNotes, createUserNote, updateUserNote, deleteUserNote, adminCheckInUser, fetchVisitorByUserId, updateUser } from '../../../service/service';
 import Swal from 'sweetalert2';
 import Sidebar from '../../../components/sidebar';
-import { User, ShoppingBag, X, Mail, Phone, Calendar, Shield } from 'lucide-react';
+import { User, ShoppingBag, X, Mail, Phone, Calendar, Shield, Pencil, UserCircle, Edit, Trash2, Eye, Plus } from 'lucide-react';
 
 export default function AdminOrders() {
     const router = useRouter();
@@ -21,6 +21,37 @@ export default function AdminOrders() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [modalLoading, setModalLoading] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [isEditingNotes, setIsEditingNotes] = useState(false);
+    const [notesText, setNotesText] = useState('');
+    const [userNotes, setUserNotes] = useState([]);
+    const [editingNoteId, setEditingNoteId] = useState(null);
+    const [hiddenVisits, setHiddenVisits] = useState([]);
+    const [showCheckInHistory, setShowCheckInHistory] = useState(false);
+    const [checkInHistoryLoading, setCheckInHistoryLoading] = useState(false);
+    const [checkInHistory, setCheckInHistory] = useState([]);
+    const [showAdjustPointsModal, setShowAdjustPointsModal] = useState(false);
+    const [adjustingPoints, setAdjustingPoints] = useState(false);
+    const [adjustmentData, setAdjustmentData] = useState({
+        adjustmentType: 'add',
+        points: '',
+        reason: '',
+        customReason: '',
+        notes: ''
+    });
+    const [rewardTasks, setRewardTasks] = useState([]);
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        phone: '',
+        role: 'user',
+        status: 'pending',
+        birthday: {
+            day: '',
+            month: '',
+            year: ''
+        }
+    });
 
     useEffect(() => {
         if (userid) {
@@ -126,9 +157,47 @@ export default function AdminOrders() {
         try {
             setModalLoading(true);
             setShowUserModal(true);
+            setIsEditMode(false);
+
             const response = await fetchUserById(userId, router);
             if (response.success) {
                 setSelectedUser(response.data);
+                
+                // Fetch user notes
+                const notesResponse = await fetchUserNotes(userId, router);
+                if (notesResponse.success) {
+                    setUserNotes(notesResponse.data || []);
+                }
+                
+                // Fetch visitor data to get visit history
+                try {
+                    const visitorData = await fetchVisitorByUserId(userId, router);
+                    if (visitorData.success && visitorData.data) {
+                        // Add visit history to selected user
+                        setSelectedUser(prev => ({
+                            ...prev,
+                            visitHistory: visitorData.data.visits || [],
+                            visitCount: visitorData.data.visitCount || 0
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error fetching visitor data:', error);
+                    // It's okay if visitor record doesn't exist yet
+                }
+                
+                // Initialize form data with user data including birthday
+                setFormData({
+                    fullName: response.data.fullName || '',
+                    email: response.data.email || '',
+                    phone: response.data.phone || '',
+                    role: response.data.role || 'user',
+                    status: response.data.status || 'pending',
+                    birthday: response.data.birthday || {
+                        day: '',
+                        month: '',
+                        year: ''
+                    }
+                });
             } else {
                 toast.error('Failed to load user details');
                 setShowUserModal(false);
@@ -163,6 +232,12 @@ export default function AdminOrders() {
     const closeUserModal = () => {
         setShowUserModal(false);
         setSelectedUser(null);
+        setIsEditMode(false);
+        setIsEditingNotes(false);
+        setNotesText('');
+        setUserNotes([]);
+        setEditingNoteId(null);
+        setHiddenVisits([]);
     };
 
     const closeOrderModal = () => {
@@ -191,6 +266,459 @@ export default function AdminOrders() {
             case 'fulfilled': return 'bg-green-100 text-green-800';
             case 'incomplete': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getRoleBadge = (role) => {
+        const roleColors = {
+            admin: 'bg-red-100 text-red-800',
+            user: 'bg-green-100 text-green-800'
+        };
+
+        return (
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${roleColors[role] || 'bg-gray-100 text-gray-800'}`}>
+                {role}
+            </span>
+        );
+    };
+
+    const formatBirthday = (birthday) => {
+        if (!birthday || !birthday.day || !birthday.month || !birthday.year) {
+            return 'Not provided';
+        }
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${months[birthday.month - 1]} ${birthday.day}, ${birthday.year}`;
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleDateChange = (e) => {
+        const { value } = e.target;
+        if (value) {
+            const date = new Date(value);
+            setFormData(prev => ({
+                ...prev,
+                birthday: {
+                    day: date.getDate(),
+                    month: date.getMonth() + 1, // Months are 0-indexed
+                    year: date.getFullYear()
+                }
+            }));
+        }
+    };
+
+    const handleSaveNote = async () => {
+        if (!selectedUser?._id || !notesText.trim()) return;
+        
+        try {
+            setModalLoading(true);
+            
+            let response;
+            if (editingNoteId) {
+                // Update existing note
+                response = await updateUserNote(editingNoteId, notesText, router);
+            } else {
+                // Create new note
+                response = await createUserNote(selectedUser._id, notesText, router);
+            }
+            
+            if (response.success) {
+                await Swal.fire({
+                    title: 'Success!',
+                    text: editingNoteId ? 'Note updated successfully.' : 'Note added successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#3085d6',
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                
+                // Refresh notes
+                const notesResponse = await fetchUserNotes(selectedUser._id, router);
+                if (notesResponse.success) {
+                    setUserNotes(notesResponse.data || []);
+                }
+                
+                setIsEditingNotes(false);
+                setNotesText('');
+                setEditingNoteId(null);
+            } else {
+                throw new Error(response.message || 'Failed to save note');
+            }
+        } catch (error) {
+            console.error('Error saving note:', error);
+            toast.error(error.message || 'Error saving note');
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleDeleteNote = async (noteId) => {
+        const result = await Swal.fire({
+            title: 'Delete Note?',
+            text: 'This action cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#EF4444',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            setModalLoading(true);
+            const response = await deleteUserNote(noteId, router);
+            
+            if (response.success) {
+                await Swal.fire({
+                    title: 'Deleted!',
+                    text: 'Note has been deleted.',
+                    icon: 'success',
+                    confirmButtonColor: '#10B981',
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                
+                // Refresh notes
+                const notesResponse = await fetchUserNotes(selectedUser._id, router);
+                if (notesResponse.success) {
+                    setUserNotes(notesResponse.data || []);
+                }
+            } else {
+                throw new Error(response.message || 'Failed to delete note');
+            }
+        } catch (error) {
+            console.error('Error deleting note:', error);
+            toast.error(error.message || 'Error deleting note');
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleEditNote = (note) => {
+        setEditingNoteId(note._id);
+        setNotesText(note.note);
+        setIsEditingNotes(true);
+    };
+
+    const handleManualCheckIn = async (userId, userName) => {
+        const result = await Swal.fire({
+            title: 'Manual Check-In',
+            html: `
+                <p>Are you sure you want to check-in <strong>${userName}</strong>?</p>
+                <p class="text-sm text-gray-600 mt-2">This will increase their visit count by 1.</p>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: 'Yes, Check-In',
+            cancelButtonText: 'Cancel'
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            setModalLoading(true);
+            const response = await adminCheckInUser(userId, router);
+            
+            if (response.success) {
+                await Swal.fire({
+                    title: 'Success!',
+                    text: `${userName} has been checked in successfully!`,
+                    icon: 'success',
+                    confirmButtonColor: '#10B981',
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                
+                // Refresh user data if modal is open
+                if (showUserModal && selectedUser?._id === userId) {
+                    const userResponse = await fetchUserById(userId, router);
+                    if (userResponse.success) {
+                        setSelectedUser(userResponse.data);
+                        
+                        // Refresh visitor data to get updated visit history
+                        try {
+                            const visitorData = await fetchVisitorByUserId(userId, router);
+                            if (visitorData.success && visitorData.data) {
+                                setSelectedUser(prev => ({
+                                    ...prev,
+                                    visitHistory: visitorData.data.visits || [],
+                                    visitCount: visitorData.data.visitCount || 0
+                                }));
+                            }
+                        } catch (error) {
+                            console.error('Error fetching visitor data:', error);
+                        }
+                    }
+                }
+            } else {
+                throw new Error(response.message || 'Failed to check-in user');
+            }
+        } catch (error) {
+            console.error('Error checking in user:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: error.message || 'Failed to check-in user',
+                icon: 'error',
+                confirmButtonColor: '#EF4444'
+            });
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleSaveUser = async () => {
+        if (!selectedUser?._id) return;
+        
+        try {
+            setModalLoading(true);
+            
+            // Prepare the data to be sent (without notes)
+            const updateData = {
+                ...formData,
+                // Include the birthday data in the correct format
+                birthday: formData.birthday
+            };
+            
+            // Use the updateUser service function
+            const response = await updateUser(selectedUser._id, updateData, router);
+            
+            if (response.success) {
+                // Show SweetAlert2 confirmation
+                await Swal.fire({
+                    title: 'Success!',
+                    text: 'User profile has been updated successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#3085d6',
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                
+                toast.success('User updated successfully');
+                setSelectedUser(response.data);
+                setIsEditMode(false);
+            } else {
+                throw new Error(response.message || 'Failed to update user');
+            }
+        } catch (error) {
+            console.error('Error updating user:', error);
+            toast.error(error.message || 'Error updating user');
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const handleViewCheckInHistory = async (userId) => {
+        try {
+            setCheckInHistoryLoading(true);
+            setShowCheckInHistory(true);
+            
+            const response = await fetchVisitorByUserId(userId, router);
+            if (response.success && response.data) {
+                setCheckInHistory(response.data.visits || []);
+            } else {
+                setCheckInHistory([]);
+                toast.info('No check-in history found for this user');
+            }
+        } catch (error) {
+            console.error('Error loading check-in history:', error);
+            toast.error('Failed to load check-in history');
+            setCheckInHistory([]);
+        } finally {
+            setCheckInHistoryLoading(false);
+        }
+    };
+
+    const closeCheckInHistoryModal = () => {
+        setShowCheckInHistory(false);
+        setCheckInHistory([]);
+        setIsEditingNotes(false);
+        setNotesText('');
+        setUserNotes([]);
+        setEditingNoteId(null);
+        setHiddenVisits([]);
+    };
+
+    const handleHideVisit = async (visitIndex) => {
+        const result = await Swal.fire({
+            title: 'Hide Visit from UI?',
+            html: `
+                <p>This will hide the visit from this view only.</p>
+                <p class="text-sm text-yellow-600 mt-2"><strong>Note:</strong> The visit data will NOT be deleted from the database. It will only be hidden from this UI to keep the display clean.</p>
+            `,
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: 'Yes, Hide It',
+            cancelButtonText: 'Cancel'
+        });
+
+        if (result.isConfirmed) {
+            setHiddenVisits(prev => [...prev, visitIndex]);
+            toast.success('Visit hidden from view');
+        }
+    };
+
+    // Load reward tasks for adjust points
+    useEffect(() => {
+        loadRewardTasks();
+    }, []);
+
+    const loadRewardTasks = async () => {
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.mypsyguide.io'}/api/rewards/admin/tasks`, {
+                headers: {
+                    'Authorization': `jwt ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                setRewardTasks(data.data || []);
+            }
+        } catch (error) {
+            console.error('Error loading reward tasks:', error);
+        }
+    };
+
+    // Open adjust points modal
+    const handleOpenAdjustPointsModal = (user) => {
+        setSelectedUser(user);
+        setAdjustmentData({
+            adjustmentType: 'add',
+            points: '',
+            reason: '',
+            customReason: '',
+            notes: ''
+        });
+        setShowAdjustPointsModal(true);
+    };
+
+    // Close adjust points modal
+    const handleCloseAdjustPointsModal = () => {
+        setShowAdjustPointsModal(false);
+        setAdjustmentData({
+            adjustmentType: 'add',
+            points: '',
+            reason: '',
+            customReason: '',
+            notes: ''
+        });
+    };
+
+    // Handle adjust points submission
+    const handleAdjustPoints = async (e) => {
+        e.preventDefault();
+
+        if (!adjustmentData.points || adjustmentData.points <= 0) {
+            toast.error('Please enter a valid points amount');
+            return;
+        }
+
+        if (!adjustmentData.reason) {
+            toast.error('Please select a reason');
+            return;
+        }
+
+        if (adjustmentData.reason === 'custom' && !adjustmentData.customReason.trim()) {
+            toast.error('Please enter a custom reason');
+            return;
+        }
+
+        // Prevent negative balance
+        if (adjustmentData.adjustmentType === 'subtract') {
+            const currentBalance = selectedUser.rewardPoints || 0;
+            const pointsToSubtract = parseFloat(adjustmentData.points);
+            
+            if (pointsToSubtract > currentBalance) {
+                Swal.fire({
+                    title: 'Insufficient Balance!',
+                    html: `
+                        <p>Cannot subtract <strong>${pointsToSubtract}</strong></p>
+                        <p>User <strong>${selectedUser.fullName}</strong> only has <strong>${currentBalance}</strong> balance.</p>
+                    `,
+                    icon: 'error',
+                    confirmButtonColor: '#EF4444'
+                });
+                return;
+            }
+        }
+
+        const confirmResult = await Swal.fire({
+            title: `${adjustmentData.adjustmentType === 'add' ? 'Add' : 'Subtract'} Points?`,
+            html: `
+                <p>User: <strong>${selectedUser.fullName}</strong></p>
+                <p>Current Balance: <strong>${selectedUser.rewardPoints || 0}</strong></p>
+                <p>Points to ${adjustmentData.adjustmentType}: <strong>${adjustmentData.points}</strong></p>
+                <p>New Balance: <strong>${adjustmentData.adjustmentType === 'add' 
+                    ? (selectedUser.rewardPoints || 0) + parseFloat(adjustmentData.points)
+                    : Math.max(0, (selectedUser.rewardPoints || 0) - parseFloat(adjustmentData.points))
+                }</strong></p>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: adjustmentData.adjustmentType === 'add' ? '#10B981' : '#EF4444',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: `Yes, ${adjustmentData.adjustmentType} points!`,
+            cancelButtonText: 'Cancel'
+        });
+
+        if (!confirmResult.isConfirmed) {
+            return;
+        }
+
+        setAdjustingPoints(true);
+        try {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.mypsyguide.io'}/api/points/admin/adjust/${selectedUser._id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `jwt ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    adjustmentType: adjustmentData.adjustmentType,
+                    points: parseFloat(adjustmentData.points),
+                    reason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : adjustmentData.reason,
+                    customReason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : '',
+                    notes: adjustmentData.notes
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                await Swal.fire({
+                    title: 'Success!',
+                    text: `Points ${adjustmentData.adjustmentType === 'add' ? 'added' : 'subtracted'} successfully!`,
+                    icon: 'success',
+                    confirmButtonColor: '#10B981',
+                    timer: 2000,
+                    timerProgressBar: true
+                });
+                handleCloseAdjustPointsModal();
+                
+                // Update the selected user
+                setSelectedUser(prev => ({
+                    ...prev,
+                    rewardPoints: data.user?.rewardPoints || prev.rewardPoints
+                }));
+            } else {
+                toast.error(data.message || 'Failed to adjust points');
+            }
+        } catch (error) {
+            console.error('Error adjusting points:', error);
+            toast.error('An error occurred while adjusting points');
+        } finally {
+            setAdjustingPoints(false);
         }
     };
 
@@ -449,35 +977,94 @@ export default function AdminOrders() {
 
             {/* User Details Modal */}
             {showUserModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Modal Header */}
                         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                            <h2 className="text-xl font-semibold text-gray-900">User Details</h2>
-                            <button onClick={closeUserModal} className="text-gray-400 hover:text-gray-500">
-                                <X className="h-6 w-6" />
-                            </button>
+                            <h2 className="text-xl font-semibold text-gray-900">
+                                {isEditMode ? 'Edit User' : 'User Details'}
+                            </h2>
+                            <div className="flex items-center space-x-2">
+                                {!isEditMode && selectedUser && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                                            onClick={() => handleOpenAdjustPointsModal(selectedUser)}
+                                        >
+                                            <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Adjust Points
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                            onClick={() => handleManualCheckIn(selectedUser._id, selectedUser.fullName)}
+                                        >
+                                            <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Check-In
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                            onClick={() => setIsEditMode(true)}
+                                        >
+                                            <Pencil className="h-3 w-3 mr-1" />
+                                            Edit User
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    type="button"
+                                    className="text-gray-400 hover:text-gray-500"
+                                    onClick={closeUserModal}
+                                >
+                                    <span className="sr-only">Close</span>
+                                    <X className="h-6 w-6" aria-hidden="true" />
+                                </button>
+                            </div>
                         </div>
+
+                        {/* Modal Content */}
                         <div className="p-6">
                             {modalLoading ? (
                                 <div className="flex items-center justify-center py-12">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                                 </div>
                             ) : selectedUser ? (
-                                <div className="space-y-4">
+                                <div className="space-y-6">
+                                    {/* User Avatar and Basic Info */}
                                     <div className="flex items-center space-x-4">
-                                        {selectedUser.avatar ? (
-                                            <img className="h-16 w-16 rounded-full" src={selectedUser.avatar} alt={selectedUser.fullName} />
-                                        ) : (
-                                            <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
-                                                <span className="text-blue-600 font-bold text-xl">{selectedUser.fullName?.charAt(0)?.toUpperCase()}</span>
-                                            </div>
-                                        )}
+                                        <div className="flex-shrink-0">
+                                            {selectedUser.avatar ? (
+                                                <img
+                                                    className="h-16 w-16 rounded-full"
+                                                    src={selectedUser.avatar}
+                                                    alt={selectedUser.fullName}
+                                                />
+                                            ) : (
+                                                <div className="h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
+                                                    <span className="text-blue-600 font-bold text-xl">
+                                                        {selectedUser.fullName?.charAt(0)?.toUpperCase()}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                         <div>
-                                            <h3 className="text-lg font-semibold text-gray-900">{selectedUser.fullName}</h3>
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                {selectedUser.fullName}
+                                            </h3>
                                             <p className="text-sm text-gray-500">User ID: {selectedUser._id}</p>
+                                            <div className="mt-1">
+                                                {getRoleBadge(selectedUser.role)}
+                                            </div>
                                         </div>
                                     </div>
-                                    
+
+                                    {/* Contact Information */}
                                     <div className="bg-gray-50 rounded-lg p-4">
                                         <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
                                             <Mail className="h-4 w-4 mr-2" />
@@ -495,40 +1082,405 @@ export default function AdminOrders() {
                                         </div>
                                     </div>
 
-                                    {selectedUser.birthday && (
-                                        <div className="bg-gray-50 rounded-lg p-4">
-                                            <h4 className="text-sm font-medium text-gray-700 mb-2">Date of Birth</h4>
-                                            <p className="text-sm text-gray-900">
-                                                {selectedUser.birthday.day} {selectedUser.birthday.month} {selectedUser.birthday.year}
-                                            </p>
+                                    {/* User Info */}
+                                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                            <UserCircle className="h-4 w-4 mr-2" />
+                                            Basic Information
+                                        </h4>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center">
+                                                <label className="text-sm font-medium text-gray-600 w-20">Name:</label>
+                                                {isEditMode ? (
+                                                    <input
+                                                        type="text"
+                                                        name="fullName"
+                                                        value={formData.fullName}
+                                                        onChange={handleInputChange}
+                                                        className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900 ml-2">{selectedUser.fullName}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center">
+                                                <label className="text-sm font-medium text-gray-600 w-20">Email:</label>
+                                                {isEditMode ? (
+                                                    <input
+                                                        type="email"
+                                                        name="email"
+                                                        value={formData.email}
+                                                        onChange={handleInputChange}
+                                                        className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900 ml-2">{selectedUser.email}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center">
+                                                <label className="text-sm font-medium text-gray-600 w-20">Phone:</label>
+                                                {isEditMode ? (
+                                                    <input
+                                                        type="tel"
+                                                        name="phone"
+                                                        value={formData.phone}
+                                                        onChange={handleInputChange}
+                                                        className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                ) : (
+                                                    <span className="text-gray-900 ml-2">{selectedUser.phone || 'N/A'}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center">
+                                                <label className="text-sm font-medium text-gray-600 w-20">Role:</label>
+                                                {isEditMode ? (
+                                                    <select
+                                                        name="role"
+                                                        value={formData.role}
+                                                        onChange={handleInputChange}
+                                                        className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        <option value="user">User</option>
+                                                        <option value="admin">Admin</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-gray-900 ml-2">{getRoleBadge(selectedUser.role)}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center">
+                                                <label className="text-sm font-medium text-gray-600 w-20">Status:</label>
+                                                {isEditMode ? (
+                                                    <select
+                                                        name="status"
+                                                        value={formData.status}
+                                                        onChange={handleInputChange}
+                                                        className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    >
+                                                        <option value="pending">Pending</option>
+                                                        <option value="verified">Verified</option>
+                                                        <option value="suspend">Suspended</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-gray-900 ml-2">{getStatusBadge(selectedUser.status)}</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    )}
+                                    </div>
 
-                                    <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-3 gap-4 mt-6">
                                         <div className="bg-gray-50 p-4 rounded-lg">
-                                            <h3 className="text-xs font-medium text-gray-500 uppercase">Account Created</h3>
+                                            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Account Created</h3>
                                             <p className="mt-1 text-sm text-gray-900">
                                                 {new Date(selectedUser.createdAt).toLocaleDateString()}
                                             </p>
                                         </div>
                                         <div className="bg-gray-50 p-4 rounded-lg">
-                                            <h3 className="text-xs font-medium text-gray-500 uppercase">Status</h3>
-                                            <p className="mt-1">{getStatusBadge(selectedUser.status)}</p>
+                                            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Status</h3>
+                                            <div className="mt-1">
+                                                {getStatusBadge(selectedUser.status)}
+                                            </div>
                                         </div>
-                                        <div className="bg-gray-50 p-4 rounded-lg">
-                                            <h3 className="text-xs font-medium text-gray-500 uppercase">Reward Points</h3>
-                                            <p className="mt-1 text-2xl font-bold text-green-600">${selectedUser.rewardPoints || 0}</p>
+                                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+                                            <h3 className="text-xs font-medium text-green-700 uppercase tracking-wider flex items-center">
+                                                <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Reward Points
+                                            </h3>
+                                            <p className="mt-1 text-2xl font-bold text-green-600">
+                                                ${selectedUser.rewardPoints || 0}
+                                            </p>
+                                        </div>
+                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                            <h3 className="text-xs font-medium text-blue-700 uppercase tracking-wider flex items-center">
+                                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                </svg>
+                                                Store Visits
+                                            </h3>
+                                            <p className="mt-1 text-2xl font-bold text-blue-600">
+                                                {selectedUser.visitCount || 0}
+                                            </p>
+                                            {selectedUser.lastVisit && (
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Last: {new Date(selectedUser.lastVisit).toLocaleDateString('en-US', {
+                                                        timeZone: 'America/Detroit',
+                                                        month: 'short',
+                                                        day: 'numeric',
+                                                        year: 'numeric'
+                                                    })}
+                                                </p>
+                                            )}
+                                            {(selectedUser.visitCount || 0) > 0 && (
+                                                <button
+                                                    onClick={() => handleViewCheckInHistory(selectedUser._id)}
+                                                    className="mt-2 w-full text-xs px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
+                                                >
+                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    View History
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
+
+                                    {/* Medication Information */}
+                                    <div className="mt-6 space-y-2">
+                                        <h3 className="text-sm font-medium text-gray-700">Medication Information</h3>
+                                        <div className="bg-gray-50 p-4 rounded-lg">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <h4 className="text-xs font-medium text-gray-500">Takes Medication</h4>
+                                                    <p className="mt-1 text-sm text-gray-900">
+                                                        {selectedUser.takesMedication ? 'Yes' : 'No'}
+                                                    </p>
+                                                </div>
+                                                {selectedUser.takesMedication && selectedUser.medicationDetails && (
+                                                    <div>
+                                                        <h4 className="text-xs font-medium text-gray-500">Medication Details</h4>
+                                                        <p className="mt-1 text-sm text-gray-900 break-words">
+                                                            {selectedUser.medicationDetails}
+                                                        </p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Account Information */}
+                                    <div className="bg-gray-50 rounded-lg p-4">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                                            <Shield className="h-4 w-4 mr-2" />
+                                            Account Information
+                                        </h4>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center text-sm">
+                                                <span className="font-medium text-gray-600 w-24">Role:</span>
+                                                <span className="text-gray-900">{getRoleBadge(selectedUser.role)}</span>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <label className="text-sm font-medium text-gray-600 w-24">Birthday:</label>
+                                                {isEditMode ? (
+                                                    <div className="flex space-x-2">
+                                                        <input
+                                                            type="date"
+                                                            value={formData.birthday && formData.birthday.year 
+                                                                ? `${formData.birthday.year}-${String(formData.birthday.month).padStart(2, '0')}-${String(formData.birthday.day).padStart(2, '0')}`
+                                                                : ''}
+                                                            onChange={handleDateChange}
+                                                            className="ml-2 flex-1 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-gray-900 ml-2">{formatBirthday(selectedUser.birthday)}</span>
+                                                )}
+                                            </div>
+                                            {selectedUser.status && (
+                                                <div className="flex items-center text-sm">
+                                                    <span className="font-medium text-gray-600 w-24">Status:</span>
+                                                    <span className="text-gray-900">{getStatusBadge(selectedUser.status)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Admin Notes Section */}
+                                    <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                                                <svg className="h-4 w-4 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                                Admin Notes ({userNotes.length})
+                                            </h4>
+                                            {!isEditingNotes && (
+                                                <button
+                                                    onClick={() => {
+                                                        setIsEditingNotes(true);
+                                                        setEditingNoteId(null);
+                                                        setNotesText('');
+                                                    }}
+                                                    className="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+                                                >
+                                                    Add Note
+                                                </button>
+                                            )}
+                                        </div>
+                                        
+                                        {isEditingNotes ? (
+                                            <div className="mb-3">
+                                                <textarea
+                                                    value={notesText}
+                                                    onChange={(e) => setNotesText(e.target.value)}
+                                                    rows={3}
+                                                    placeholder="Add notes about this customer (e.g., 'Gave 10% discount', 'Prescription missing', 'Check ID on next visit')"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm mb-2"
+                                                />
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={handleSaveNote}
+                                                        disabled={modalLoading || !notesText.trim()}
+                                                        className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                                                    >
+                                                        {modalLoading ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Save Note')}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditingNotes(false);
+                                                            setNotesText('');
+                                                            setEditingNoteId(null);
+                                                        }}
+                                                        className="px-3 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : null}
+                                        
+                                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                                            {userNotes.length > 0 ? (
+                                                userNotes.map((note) => (
+                                                    <div key={note._id} className="bg-white p-3 rounded border border-yellow-200">
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <span className="text-xs text-gray-500">
+                                                                {new Date(note.createdAt).toLocaleString('en-US', {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    year: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </span>
+                                                            <div className="flex gap-1">
+                                                                <button
+                                                                    onClick={() => handleEditNote(note)}
+                                                                    className="text-blue-600 hover:text-blue-800 p-1"
+                                                                    title="Edit note"
+                                                                >
+                                                                    <Pencil className="h-3 w-3" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteNote(note._id)}
+                                                                    className="text-red-600 hover:text-red-800 p-1"
+                                                                    title="Delete note"
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.note}</p>
+                                                        {note.createdBy && (
+                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                By: {note.createdBy.fullName || note.createdBy.email}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-sm text-gray-500 text-center py-2">No notes added yet.</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Visit History Section */}
+                                    {selectedUser.visitHistory && selectedUser.visitHistory.length > 0 && (
+                                        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                                                    <svg className="h-4 w-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    Visit History ({selectedUser.visitCount || 0} total visits)
+                                                </h4>
+                                                {hiddenVisits.length > 0 && (
+                                                    <button
+                                                        onClick={() => setHiddenVisits([])}
+                                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                                    >
+                                                        Show All ({hiddenVisits.length} hidden)
+                                                    </button>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                                                {selectedUser.visitHistory.slice().reverse().map((visit, index) => {
+                                                    // Skip if this visit is hidden
+                                                    if (hiddenVisits.includes(index)) return null;
+                                                    
+                                                    return (
+                                                        <div key={index} className="bg-white p-3 rounded border border-blue-200">
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center space-x-2">
+                                                                        <span className="text-xs text-gray-500">
+                                                                            {new Date(visit.timestamp).toLocaleString('en-US', {
+                                                                                month: 'short',
+                                                                                day: 'numeric',
+                                                                                year: 'numeric',
+                                                                                hour: '2-digit',
+                                                                                minute: '2-digit'
+                                                                            })}
+                                                                        </span>
+                                                                        {visit.checkedInBy === 'admin' && (
+                                                                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                                                                Admin Check-In
+                                                                            </span>
+                                                                        )}
+                                                                        {visit.checkedInBy === 'self' && (
+                                                                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                                                                Self Check-In
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    {visit.adminId && (
+                                                                        <p className="text-xs text-gray-600 mt-1">
+                                                                            By: {visit.adminId.fullName || visit.adminId.email}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleHideVisit(index)}
+                                                                    className="text-gray-400 hover:text-red-600 p-1"
+                                                                    title="Hide from view (data will not be deleted)"
+                                                                >
+                                                                    <X className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Additional Information */}
+                                    {selectedUser.avatar && (
+                                        <div className="bg-gray-50 rounded-lg p-4">
+                                            <h4 className="text-sm font-medium text-gray-700 mb-3">Profile Picture</h4>
+                                            <img
+                                                src={selectedUser.avatar}
+                                                alt={selectedUser.fullName}
+                                                className="h-32 w-32 rounded-lg object-cover"
+                                            />
+                                        </div>
+                                    )}
 
                                     {selectedUser.governmentId && (
                                         <div className="bg-gray-50 rounded-lg p-4">
                                             <h4 className="text-sm font-medium text-gray-700 mb-3">Government ID</h4>
-                                            <img
-                                                src={selectedUser.governmentId}
-                                                alt="Government ID"
-                                                className="max-h-64 rounded object-contain"
-                                            />
+                                            {/\.pdf($|\?)/i.test(selectedUser.governmentId) ? (
+                                                <div className="w-full h-96">
+                                                    <iframe src={selectedUser.governmentId} className="w-full h-full rounded" />
+                                                </div>
+                                            ) : (
+                                                <img
+                                                    src={selectedUser.governmentId}
+                                                    alt="Government ID"
+                                                    className="max-h-96 rounded object-contain"
+                                                />
+                                            )}
                                             <div className="mt-2">
                                                 <a href={selectedUser.governmentId} target="_blank" rel="noreferrer" className="text-blue-600 underline text-sm">
                                                     Open original
@@ -536,15 +1488,30 @@ export default function AdminOrders() {
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Action Buttons */}
+                                    {isEditMode && (
+                                        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                                            <button
+                                                onClick={() => setIsEditMode(false)}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={handleSaveUser}
+                                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+                                            >
+                                                Save Changes
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
-                                <p className="text-center text-gray-500">No user data available</p>
+                                <div className="text-center py-12">
+                                    <p className="text-gray-500">No user data available</p>
+                                </div>
                             )}
-                        </div>
-                        <div className="flex justify-end p-6 border-t border-gray-200">
-                            <button onClick={closeUserModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-                                Close
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -661,6 +1628,234 @@ export default function AdminOrders() {
                                 Close
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Check-in History Modal */}
+            {showCheckInHistory && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-900">Check-in History</h2>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {selectedUser?.fullName} - Total visits: {checkInHistory.length}
+                                </p>
+                            </div>
+                            <button
+                                onClick={closeCheckInHistoryModal}
+                                className="text-gray-400 hover:text-gray-500"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {checkInHistoryLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                </div>
+                            ) : checkInHistory.length > 0 ? (
+                                <div className="space-y-3">
+                                    {checkInHistory.slice().reverse().map((visit, index) => {
+                                        const visitDate = new Date(visit.timestamp);
+                                        const michiganDate = visitDate.toLocaleString('en-US', {
+                                            timeZone: 'America/Detroit',
+                                            weekday: 'long',
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            hour12: true
+                                        });
+                                        
+                                        return (
+                                            <div key={index} className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200 hover:shadow-md transition-shadow">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center space-x-2 mb-2">
+                                                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            <span className="text-sm font-semibold text-gray-900">
+                                                                Visit #{checkInHistory.length - index}
+                                                            </span>
+                                                            {visit.checkedInBy === 'admin' && (
+                                                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                                                                    Admin Check-In
+                                                                </span>
+                                                            )}
+                                                            {visit.checkedInBy === 'self' && (
+                                                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                                                    Self Check-In
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-sm text-gray-700">
+                                                                <span className="font-medium">Date:</span> {michiganDate}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500">
+                                                                Michigan Time (EST/EDT)
+                                                            </p>
+                                                        </div>
+                                                        {visit.adminId && (
+                                                            <p className="text-xs text-gray-600 mt-2">
+                                                                <span className="font-medium">Checked in by:</span> {visit.adminId.fullName || visit.adminId.email}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <h3 className="mt-2 text-sm font-medium text-gray-900">No check-in history</h3>
+                                    <p className="mt-1 text-sm text-gray-500">This user hasn't checked in yet.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Adjust Points Modal */}
+            {showAdjustPointsModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                            <h2 className="text-xl font-semibold text-gray-900">Adjust Points</h2>
+                            <button
+                                onClick={handleCloseAdjustPointsModal}
+                                className="text-gray-400 hover:text-gray-500"
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleAdjustPoints} className="p-6">
+                            <div className="space-y-4">
+                                <div className="bg-blue-50 p-4 rounded-lg">
+                                    <h3 className="text-sm font-medium text-gray-900">{selectedUser?.fullName}</h3>
+                                    <p className="text-sm text-gray-600">Current Balance: <span className="font-semibold text-green-600">${selectedUser?.rewardPoints || 0}</span></p>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Action</label>
+                                    <div className="flex space-x-4">
+                                        <label className="flex items-center">
+                                            <input
+                                                type="radio"
+                                                name="adjustmentType"
+                                                value="add"
+                                                checked={adjustmentData.adjustmentType === 'add'}
+                                                onChange={(e) => setAdjustmentData(prev => ({ ...prev, adjustmentType: e.target.value }))}
+                                                className="mr-2"
+                                            />
+                                            <span className="text-green-600 font-medium">Add Points</span>
+                                        </label>
+                                        <label className="flex items-center">
+                                            <input
+                                                type="radio"
+                                                name="adjustmentType"
+                                                value="subtract"
+                                                checked={adjustmentData.adjustmentType === 'subtract'}
+                                                onChange={(e) => setAdjustmentData(prev => ({ ...prev, adjustmentType: e.target.value }))}
+                                                className="mr-2"
+                                            />
+                                            <span className="text-red-600 font-medium">Subtract Points</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Points Amount</label>
+                                    <input
+                                        type="number"
+                                        min="0.01"
+                                        step="0.01"
+                                        value={adjustmentData.points}
+                                        onChange={(e) => setAdjustmentData(prev => ({ ...prev, points: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Enter points amount"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                                    <select
+                                        value={adjustmentData.reason}
+                                        onChange={(e) => setAdjustmentData(prev => ({ ...prev, reason: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    >
+                                        <option value="">Select a reason</option>
+                                        <option value="manual_adjustment">Manual Adjustment</option>
+                                        <option value="bonus">Bonus Points</option>
+                                        <option value="correction">Correction</option>
+                                        <option value="refund">Refund</option>
+                                        <option value="penalty">Penalty</option>
+                                        <option value="custom">Custom Reason</option>
+                                    </select>
+                                </div>
+                                
+                                {adjustmentData.reason === 'custom' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Custom Reason</label>
+                                        <input
+                                            type="text"
+                                            value={adjustmentData.customReason}
+                                            onChange={(e) => setAdjustmentData(prev => ({ ...prev, customReason: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Enter custom reason"
+                                            required
+                                        />
+                                    </div>
+                                )}
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                                    <textarea
+                                        value={adjustmentData.notes}
+                                        onChange={(e) => setAdjustmentData(prev => ({ ...prev, notes: e.target.value }))}
+                                        rows={3}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Additional notes about this adjustment"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-end space-x-3 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={handleCloseAdjustPointsModal}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={adjustingPoints}
+                                    className={`px-4 py-2 text-sm font-medium text-white rounded-md ${
+                                        adjustmentData.adjustmentType === 'add' 
+                                            ? 'bg-green-600 hover:bg-green-700' 
+                                            : 'bg-red-600 hover:bg-red-700'
+                                    } disabled:opacity-50`}
+                                >
+                                    {adjustingPoints ? 'Processing...' : `${adjustmentData.adjustmentType === 'add' ? 'Add' : 'Subtract'} Points`}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

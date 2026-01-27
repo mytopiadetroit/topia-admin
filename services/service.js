@@ -1,6 +1,6 @@
 import axios from "axios";
           //  const ConstantsUrl = "http://localhost:5000/api/";
-          const ConstantsUrl = "https://api.mypsyguide.io/api/";
+           const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 // export const ConstantsUrl = "";
 
@@ -306,6 +306,15 @@ export const fetchCustomerGrowth = async (router, period = 30) => {
     return await Api('get', 'analytics/customer-growth', null, router, { period });
   } catch (error) {
     console.error('Error fetching customer growth:', error);
+    throw error;
+  }
+};
+
+export const fetchRegistrationsVsVisits = async (router, period = 30) => {
+  try {
+    return await Api('get', 'analytics/registrations-vs-visits', null, router, { period });
+  } catch (error) {
+    console.error('Error fetching registrations vs visits:', error);
     throw error;
   }
 };

@@ -7,7 +7,8 @@ import {
   fetchSalesComparison,
   fetchTopSellingProducts,
   fetchRevenueAnalytics,
-  fetchCustomerGrowth
+  fetchCustomerGrowth,
+  fetchRegistrationsVsVisits
 } from '@/services/service';
 import { toast } from 'react-toastify';
 
@@ -28,6 +29,7 @@ const AnalyticsTab = () => {
   const [topProducts, setTopProducts] = useState([]);
   const [revenueData, setRevenueData] = useState(null);
   const [customerGrowth, setCustomerGrowth] = useState(null);
+  const [registrationsVsVisits, setRegistrationsVsVisits] = useState(null);
 
 
 
@@ -38,12 +40,13 @@ const AnalyticsTab = () => {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const [returning, sales, products, revenue, growth] = await Promise.all([
+      const [returning, sales, products, revenue, growth, regVsVisits] = await Promise.all([
         fetchReturningCustomers(router, period),
         fetchSalesComparison(router),
         fetchTopSellingProducts(router, 10, period),
         fetchRevenueAnalytics(router, period),
-        fetchCustomerGrowth(router, period)
+        fetchCustomerGrowth(router, period),
+        fetchRegistrationsVsVisits(router, period)
       ]);
 
       if (returning?.success) setReturningCustomers(returning.data);
@@ -51,6 +54,7 @@ const AnalyticsTab = () => {
       if (products?.success) setTopProducts(products.data);
       if (revenue?.success) setRevenueData(revenue.data);
       if (growth?.success) setCustomerGrowth(growth.data);
+      if (regVsVisits?.success) setRegistrationsVsVisits(regVsVisits.data);
     } catch (error) {
       console.error('Error loading analytics:', error);
       toast.error('Failed to load analytics data');
@@ -254,6 +258,58 @@ const AnalyticsTab = () => {
     data: customerGrowth?.dailyRegistrations?.map(d => d.count) || []
   }];
 
+  // Registrations vs Visits Chart Configuration
+  const registrationsVsVisitsChartOptions = {
+    chart: {
+      type: 'donut',
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        speed: 800
+      }
+    },
+    labels: ['Visited Store', 'Registered Only'],
+    colors: ['#48BB78', '#F56565'],
+    legend: {
+      position: 'bottom',
+      fontSize: '14px'
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '70%',
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'Total Registrations',
+              fontSize: '16px',
+              fontWeight: 600,
+              formatter: () => registrationsVsVisits?.totalRegistrations || 0
+            }
+          }
+        }
+      }
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val) => `${val.toFixed(1)}%`
+    },
+    tooltip: {
+      y: {
+        formatter: (val, { seriesIndex }) => {
+          const labels = ['users visited store', 'users registered only'];
+          return `${val} ${labels[seriesIndex]}`;
+        }
+      }
+    }
+  };
+
+  const registrationsVsVisitsChartSeries = registrationsVsVisits ? [
+    registrationsVsVisits.usersWhoVisited || 0,
+    registrationsVsVisits.usersWhoDidntVisit || 0
+  ] : [];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -295,7 +351,7 @@ const AnalyticsTab = () => {
       </div>
 
       {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <MotionDiv
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -390,10 +446,35 @@ const AnalyticsTab = () => {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
           <div className="relative">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-bold text-white/90 uppercase tracking-wide">Total Customers</p>
+              <p className="text-sm font-bold text-white/90 uppercase tracking-wide">Visit Conversion</p>
               <div className="bg-white/20 p-2 rounded-lg">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-3xl font-black text-white mb-2">
+              {registrationsVsVisits?.conversionRate || 0}%
+            </p>
+            <p className="text-sm text-white/90 font-medium">
+              {registrationsVsVisits?.usersWhoVisited || 0} of {registrationsVsVisits?.totalRegistrations || 0} visited
+            </p>
+          </div>
+        </MotionDiv>
+
+        <MotionDiv
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="relative bg-[#80A6F7] rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+          <div className="relative">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-bold text-white/90 uppercase tracking-wide">Total Customers</p>
+              <div className="bg-white/20 p-2 rounded-lg">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 515.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 919.288 0M15 7a3 3 0 11-6 0 3 3 0 616 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
             </div>
@@ -441,7 +522,7 @@ const AnalyticsTab = () => {
           </div>
         </MotionDiv>
 
-        {/* Returning Customers Chart */}
+        {/* Registrations vs Store Visits Chart */}
         <MotionDiv
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -451,25 +532,36 @@ const AnalyticsTab = () => {
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-[#80A6F7] p-3 rounded-xl shadow-md">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-800">Customer Retention</h3>
+              <h3 className="text-lg font-bold text-gray-800">Registrations vs Store Visits</h3>
               <p className="text-sm text-gray-500 font-medium">
-                New vs returning customer distribution
+                How many registered users actually visited the store
               </p>
             </div>
           </div>
           <div className="bg-[#80A6F7]/10 rounded-xl p-4">
             {typeof window !== 'undefined' && (
               <Chart
-                options={returningCustomersChartOptions}
-                series={returningCustomersChartSeries}
+                options={registrationsVsVisitsChartOptions}
+                series={registrationsVsVisitsChartSeries}
                 type="donut"
                 height={300}
               />
             )}
+          </div>
+          {/* Stats below chart */}
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+              <p className="text-green-600 text-sm font-medium">Conversion Rate</p>
+              <p className="text-green-800 text-2xl font-bold">{registrationsVsVisits?.conversionRate || 0}%</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+              <p className="text-blue-600 text-sm font-medium">Total Registered</p>
+              <p className="text-blue-800 text-2xl font-bold">{registrationsVsVisits?.totalRegistrations || 0}</p>
+            </div>
           </div>
         </MotionDiv>
       </div>
@@ -505,6 +597,44 @@ const AnalyticsTab = () => {
           )}
         </div>
       </MotionDiv>
+
+      {/* Second Charts Grid - Returning Customers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Returning Customers Chart */}
+        <MotionDiv
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.65 }}
+          className="bg-white border-2 border-[#80A6F7]/20 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <div className="bg-[#80A6F7] p-3 rounded-xl shadow-md">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Customer Retention</h3>
+              <p className="text-sm text-gray-500 font-medium">
+                New vs returning customer distribution
+              </p>
+            </div>
+          </div>
+          <div className="bg-[#80A6F7]/10 rounded-xl p-4">
+            {typeof window !== 'undefined' && (
+              <Chart
+                options={returningCustomersChartOptions}
+                series={returningCustomersChartSeries}
+                type="donut"
+                height={300}
+              />
+            )}
+          </div>
+        </MotionDiv>
+
+        {/* Empty space or future chart */}
+        <div></div>
+      </div>
 
       {/* Customer Growth Trend */}
       <MotionDiv

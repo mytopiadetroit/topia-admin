@@ -241,6 +241,8 @@ export default function Dashboard() {
   const verifiedRegistrations = useMemo(() => users.filter(u => u.status === 'verified').length, [users]);
   const fulfilledOrders = useMemo(() => orders.filter(o => o.status === 'fulfilled').length, [orders]);
   const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed').length, [orders]);
+  const pendingOrders = useMemo(() => orders.filter(o => o.status === 'pending').length, [orders]);
+  const outOfStockProducts = useMemo(() => products.filter(p => p.stock === 0).length, [products]);
 
   const stats = [
     {
@@ -294,9 +296,24 @@ export default function Dashboard() {
       link: '/users'
     },
     {
+      title: 'Pending Orders',
+      value: String(pendingOrders),
+      icon: '⏳',
+      bgColor: 'bg-amber-50',
+      iconBg: 'bg-amber-100',
+      link: '/admin/orders'
+    },
+    {
+      title: 'Out of Stock Products',
+      value: String(outOfStockProducts),
+      icon: '🚫',
+      bgColor: 'bg-red-50',
+      iconBg: 'bg-red-100'
+    },
+    {
       title: 'Fulfilled Orders',
       value: String(fulfilledOrders),
-      icon: '📦',
+      icon: '📋',
       bgColor: 'bg-orange-50',
       iconBg: 'bg-orange-100',
       link: '/admin/orders'
