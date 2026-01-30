@@ -265,9 +265,11 @@ export default function ProductsByCategory() {
     name: '',
     price: '',
     stock: '',
+    short_description: '', // Add short_description field
     descriptionMain: '',
     descriptionDetails: '',
     primaryUse: 'therapeutic',
+    intensity: '5', // Add intensity field
     hasStock: true,
     imagesNew: [],
     imageAltName: '',
@@ -407,6 +409,7 @@ export default function ProductsByCategory() {
       descriptionMain: product.description?.main || '',
       descriptionDetails: product.description?.details || '',
       primaryUse: product.primaryUse || 'therapeutic',
+      intensity: product.intensity || '5', // Add intensity field
       hasStock: !!product.hasStock,
       imagesNew: [],
       imageAltName: product.imageAltName || '',
@@ -603,6 +606,9 @@ export default function ProductsByCategory() {
     if (!formData.primaryUse) {
       errors.primaryUse = 'Primary use is required';
     }
+    if (!formData.intensity || formData.intensity < 1 || formData.intensity > 10) {
+      errors.intensity = 'Intensity must be between 1 and 10';
+    }
     // Check if there are either new images or at least one kept image
     const hasNewImages = formData.imagesNew && formData.imagesNew.length > 0;
     const hasKeptImages = editKeepImages && editKeepImages.length > 0;
@@ -687,6 +693,7 @@ export default function ProductsByCategory() {
       fd.append('imageAltName', editForm.imageAltName || '');
       fd.append('metaTitle', editForm.metaTitle || '');
       fd.append('metaDescription', editForm.metaDescription || '');
+      fd.append('intensity', editForm.intensity || '5'); // Add intensity field
       fd.append('reviewTags', JSON.stringify(editForm.reviewTagIds || []));
       fd.append('hasVariants', String(editForm.hasVariants));
       fd.append('variants', JSON.stringify(editForm.variants || []));
@@ -2073,7 +2080,7 @@ export default function ProductsByCategory() {
 
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Short Description</label>
-                  <input name="short_description" value={editErrors.short_description} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+                  <input name="short_description" value={editForm.short_description} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
                 </div>
 
                 {/* Use Variants Toggle */}
@@ -2442,8 +2449,8 @@ export default function ProductsByCategory() {
                   )}
                 </div>
 
-                {/* Primary Use + In Stock */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Primary Use + Intensity + In Stock */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Primary Use</label>
                     <select
@@ -2458,6 +2465,28 @@ export default function ProductsByCategory() {
                     {editErrors.primaryUse && (
                       <p className="mt-1 text-sm text-red-600">{editErrors.primaryUse}</p>
                     )}
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Intensity (1-10)</label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="range"
+                        name="intensity"
+                        min="1"
+                        max="10"
+                        value={editForm.intensity || 5}
+                        onChange={handleEditChange}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <span className="text-sm font-medium min-w-[20px] text-center">
+                        {editForm.intensity || 5}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Mild</span>
+                      <span>Medium</span>
+                      <span>Strong</span>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2 mt-6">
                     <input
