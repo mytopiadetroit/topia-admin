@@ -10,18 +10,10 @@ import {
   ShoppingBag,
   X,
   Mail,
-  Phone,
-  Calendar,
   Shield,
   Pencil,
   UserCircle,
-  Trash2,
-  Edit,
-  Eye,
-  Plus,
-  Filter,
-  Download,
-  MoreHorizontal
+  Trash2
 } from 'lucide-react';
 
 export default function AdminOrders() {
@@ -38,7 +30,6 @@ export default function AdminOrders() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [modalLoading, setModalLoading] = useState(false);
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -58,7 +49,6 @@ export default function AdminOrders() {
     customReason: '',
     notes: ''
   });
-  const [rewardTasks, setRewardTasks] = useState([]);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -74,7 +64,6 @@ export default function AdminOrders() {
 
   // Ref for infinite scroll
   const observerRef = useRef();
-  const lastOrderElementRef = useRef();
 
   // Load orders with infinite scroll support
   const loadOrders = useCallback(async (pageNum = 1, append = false) => {
@@ -588,27 +577,6 @@ export default function AdminOrders() {
       });
     } finally {
       setUserModalLoading(false);
-    }
-  };
-
-  // Load reward tasks for adjust points
-  useEffect(() => {
-    loadRewardTasks();
-  }, []);
-
-  const loadRewardTasks = async () => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.mypsyguide.io'}/api/rewards/admin/tasks`, {
-        headers: {
-          'Authorization': `jwt ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setRewardTasks(data.data || []);
-      }
-    } catch (error) {
-      console.error('Error loading reward tasks:', error);
     }
   };
 
@@ -1730,20 +1698,53 @@ export default function AdminOrders() {
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Order Items</h4>
                   <div className="space-y-3">
                     {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="flex justify-between items-start p-3 bg-white rounded border">
+                      <div key={index} className="flex items-center space-x-4 bg-white p-3 rounded">
+                        {item.image && (
+                          <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded" />
+                        )}
                         <div className="flex-1">
-                          <h5 className="font-medium text-gray-900">{item.name}</h5>
-                          {item.selectedVariant && (
-                            <p className="text-sm text-gray-600">Variant: {item.selectedVariant}</p>
-                          )}
-                          {item.selectedFlavor && (
-                            <p className="text-sm text-gray-600">Flavor: {item.selectedFlavor}</p>
-                          )}
-                          <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                          <p className="font-medium text-gray-900">{item.name}</p>
+                          {item.selectedVariant ? (
+                            <p className="text-sm text-blue-600 font-medium">
+                              ✓ Size: {typeof item.selectedVariant === 'object' ? 
+                                (item.selectedVariant.size ? 
+                                  `${item.selectedVariant.size.value || ''}${item.selectedVariant.size.unit || ''}` : 
+                                  'N/A') : 
+                                item.selectedVariant}
+                            </p>
+                          ) : item.product?.variants && item.product.variants.length === 1 ? (
+                            <p className="text-sm text-blue-500">
+                              Size: {typeof item.product.variants[0].size === 'object' ? 
+                                `${item.product.variants[0].size.value || ''}${item.product.variants[0].size.unit || ''}` : 
+                                item.product.variants[0].size || 'N/A'}
+                            </p>
+                          ) : item.product?.variants && item.product.variants.length > 1 ? (
+                            <p className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block">
+                              ⚠️ Size not recorded - Contact customer
+                            </p>
+                          ) : null}
+                          
+                          {item.selectedFlavor ? (
+                            <p className="text-sm text-purple-600 font-medium">
+                              ✓ Flavor: {typeof item.selectedFlavor === 'object' ? 
+                                item.selectedFlavor.name || 'N/A' : 
+                                item.selectedFlavor}
+                            </p>
+                          ) : item.product?.flavors && item.product.flavors.filter(f => f.isActive).length === 1 ? (
+                            <p className="text-sm text-purple-500">
+                              Flavor: {item.product.flavors.find(f => f.isActive)?.name || 'N/A'}
+                            </p>
+                          ) : item.product?.flavors && item.product.flavors.filter(f => f.isActive).length > 1 ? (
+                            <p className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block">
+                              ⚠️ Flavor not recorded - Contact customer
+                            </p>
+                          ) : null}
+                          
+                          <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-gray-900">${(item.price * item.quantity).toFixed(2)}</p>
-                          <p className="text-sm text-gray-600">${item.price.toFixed(2)} each</p>
+                          <p className="text-sm text-gray-500">${item.price} each</p>
                         </div>
                       </div>
                     ))}
@@ -1754,16 +1755,16 @@ export default function AdminOrders() {
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Order Summary</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>Subtotal:</span>
-                      <span>${selectedOrder.subtotal.toFixed(2)}</span>
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="text-gray-900">${selectedOrder.subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>Tax:</span>
-                      <span>${selectedOrder.tax.toFixed(2)}</span>
+                      <span className="text-gray-600">Tax:</span>
+                      <span className="text-gray-900">${selectedOrder.tax.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between font-medium text-lg border-t pt-2">
-                      <span>Total:</span>
-                      <span>${selectedOrder.totalAmount.toFixed(2)}</span>
+                    <div className="flex justify-between text-base font-semibold pt-2 border-t">
+                      <span className="text-gray-900">Total:</span>
+                      <span className="text-gray-900">${selectedOrder.totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
