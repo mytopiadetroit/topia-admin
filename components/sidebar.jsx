@@ -5,9 +5,6 @@ import {
   BarChart3,
   Package,
   Grid3X3,
-  Menu,
-  LogOut,
-  X,
   ChevronDown,
   ChevronRight,
   Users,
@@ -19,12 +16,12 @@ import {
   Settings,
   Image,
   Flame,
-  MessageSquare
+  MessageSquare,
+  Crown
 } from "lucide-react";
 import { fetchAllCategories } from "../service/service";
 
-export default function Sidebar({ className = "", isMobileOpen = false, onClose }) {
-  const [collapsed, setCollapsed] = useState(false);
+export default function Sidebar({ className = "", isMobileOpen = false }) {
   const [activeModule, setActiveModule] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
@@ -114,6 +111,9 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
     } else if (currentPath.includes("/sms-notifications")) {
       setActiveModule("sms");
       setActiveCategory("");
+    } else if (currentPath.includes("/subscriptions")) {
+      setActiveModule("subscriptions");
+      setActiveCategory("");
     } else if (currentPath.includes("/gallery")) {
       setActiveModule("gallery");
       setActiveCategory("");
@@ -124,8 +124,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
   }, [router.asPath, router.pathname]);
 
   const getModuleClasses = (moduleName) => {
-    const baseClasses = `w-full flex items-center justify-start p-2 rounded-lg ${collapsed ? "px-2" : "px-4"
-      }`;
+    const baseClasses = `w-full flex items-center justify-start p-2 rounded-lg px-4`;
 
     if (activeModule === moduleName) {
       return `${baseClasses} bg-white text-[#80A6F7]`;
@@ -149,25 +148,22 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
   return (
     <>
       <div
-        className={`sidebar-fixed bg-gradient-to-b from-[#80A6F7] to-[#80A6F7] text-white transition-transform duration-300 transform h-screen flex flex-col ${collapsed && typeof window !== 'undefined' && window.innerWidth >= 768 ? "w-[70px]" : "w-[240px]"
-          } ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"} ${className}`}
+        className={`sidebar-fixed bg-gradient-to-b from-[#80A6F7] to-[#80A6F7] text-white transition-transform duration-300 transform h-screen flex flex-col w-[240px] ${isMobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"} ${className}`}
       >
         {/* Header with Logo */}
         <div className="flex-shrink-0">
           <div className="flex items-center px-4 py-0">
             <div className="flex items-center">
-              {!collapsed && (
-                <a
-                  href="https://www.mypsyguide.io/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex flex-col items-center"
-                >
-                  <div className="w-32 h-32 rounded-full ml-6 flex items-center justify-center mb-2">
-                    <img src="/logo.png" alt="" />
-                  </div>
-                </a>
-              )}
+              <a
+                href="https://www.mypsyguide.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center"
+              >
+                <div className="w-32 h-32 rounded-full ml-6 flex items-center justify-center mb-2">
+                  <img src="/logo.png" alt="" />
+                </div>
+              </a>
             </div>
           </div>
         </div>
@@ -180,7 +176,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("dashboard")}
               >
                 <BarChart3 className={`h-5 w-5 ${activeModule === "dashboard" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Dashboard</span>}
+                <span className="ml-2">Dashboard</span>
               </button>
             </Link>
 
@@ -190,20 +186,16 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("product")}
               >
                 <Package className={`h-5 w-5 ${activeModule === "product" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && (
-                  <>
-                    <span className="ml-2">Product</span>
-                    {productDropdownOpen ? (
-                      <ChevronDown className="ml-auto h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </>
+                <span className="ml-2">Product</span>
+                {productDropdownOpen ? (
+                  <ChevronDown className="ml-auto h-4 w-4" />
+                ) : (
+                  <ChevronRight className="ml-auto h-4 w-4" />
                 )}
               </button>
 
               {/* Product Dropdown */}
-              {productDropdownOpen && !collapsed && (
+              {productDropdownOpen && (
                 <div className="ml-4 mt-1 space-y-1">
                   {categoriesLoading ? (
                     <div className="px-4 py-2 text-sm text-blue-100 italic">Loading categories...</div>
@@ -227,7 +219,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("categories")}
               >
                 <Grid3X3 className={`h-5 w-5 ${activeModule === "categories" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Categories</span>}
+                <span className="ml-2">Categories</span>
               </button>
             </Link>
 
@@ -236,7 +228,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("content")}
               >
                 <BookOpen className={`h-5 w-5 ${activeModule === "content" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Content</span>}
+                <span className="ml-2">Content</span>
               </button>
             </Link>
 
@@ -245,7 +237,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("stats")}
               >
                 <BarChart3 className={`h-5 w-5 ${activeModule === "stats" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Stats</span>}
+                <span className="ml-2">Stats</span>
               </button>
             </Link>
 
@@ -254,7 +246,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("users")}
               >
                 <Users className={`h-5 w-5 ${activeModule === "users" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Users</span>}
+                <span className="ml-2">Users</span>
               </button>
             </Link>
 
@@ -263,25 +255,16 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("visitors")}
               >
                 <Users className={`h-5 w-5 ${activeModule === "visitors" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Visitors</span>}
+                <span className="ml-2">Visitors</span>
               </button>
             </Link>
-
-            {/* <Link href="/members">
-                <button
-                  className={getModuleClasses("members")}
-                >
-                  <Users className={`h-5 w-5 ${activeModule === "members" ? "text-[#80A6F7]" : ""}`} />
-                  {!collapsed && <span className="ml-2">Members</span>}
-                </button>
-              </Link> */}
 
             <Link href="/contacts">
               <button
                 className={getModuleClasses("contacts")}
               >
                 <FileText className={`h-5 w-5 ${activeModule === "contacts" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Contacts</span>}
+                <span className="ml-2">Contacts</span>
               </button>
             </Link>
 
@@ -290,7 +273,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("reviews")}
               >
                 <Star className={`h-5 w-5 ${activeModule === "reviews" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Reviews</span>}
+                <span className="ml-2">Reviews</span>
               </button>
             </Link>
 
@@ -299,7 +282,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("review-tags")}
               >
                 <Star className={`h-5 w-5 ${activeModule === "review-tags" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Research Tags</span>}
+                <span className="ml-2">Research Tags</span>
               </button>
             </Link>
 
@@ -308,7 +291,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("orders")}
               >
                 <FileText className={`h-5 w-5 ${activeModule === "orders" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Orders</span>}
+                <span className="ml-2">Orders</span>
               </button>
             </Link>
 
@@ -317,7 +300,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("rewards")}
               >
                 <Gift className={`h-5 w-5 ${activeModule === "rewards" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Rewards</span>}
+                <span className="ml-2">Rewards</span>
               </button>
             </Link>
 
@@ -326,7 +309,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("points")}
               >
                 <DollarSign className={`h-5 w-5 ${activeModule === "points" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Points Management</span>}
+                <span className="ml-2">Points Management</span>
               </button>
             </Link>
 
@@ -335,7 +318,16 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("deals")}
               >
                 <Flame className={`h-5 w-5 ${activeModule === "deals" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Crazy Deals</span>}
+                <span className="ml-2">Crazy Deals</span>
+              </button>
+            </Link>
+
+            <Link href="/subscriptions">
+              <button
+                className={getModuleClasses("subscriptions")}
+              >
+                <Crown className={`h-5 w-5 ${activeModule === "subscriptions" ? "text-[#80A6F7]" : ""}`} />
+                <span className="ml-2">Topia Circle</span>
               </button>
             </Link>
 
@@ -344,7 +336,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("sms")}
               >
                 <MessageSquare className={`h-5 w-5 ${activeModule === "sms" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Notifications</span>}
+                <span className="ml-2">Notifications</span>
               </button>
             </Link>
 
@@ -353,7 +345,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("gallery")}
               >
                 <Image className={`h-5 w-5 ${activeModule === "gallery" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Gallery</span>}
+                <span className="ml-2">Gallery</span>
               </button>
             </Link>
 
@@ -362,7 +354,7 @@ export default function Sidebar({ className = "", isMobileOpen = false, onClose 
                 className={getModuleClasses("settings")}
               >
                 <Settings className={`h-5 w-5 ${activeModule === "settings" ? "text-[#80A6F7]" : ""}`} />
-                {!collapsed && <span className="ml-2">Settings</span>}
+                <span className="ml-2">Settings</span>
               </button>
             </Link>
           </div>

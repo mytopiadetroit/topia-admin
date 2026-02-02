@@ -1567,11 +1567,15 @@ export default function AdminOrders() {
                                                     <p className="font-medium text-gray-900">{item.name}</p>
                                                     {item.selectedVariant ? (
                                                       <p className="text-sm text-blue-600 font-medium">
-                                                        ✓ Size: {item.selectedVariant.size?.value}{item.selectedVariant.size?.unit}
+                                                        ✓ Size: {typeof item.selectedVariant.size === 'object' ? 
+                                                          `${item.selectedVariant.size.value || ''}${item.selectedVariant.size.unit || ''}` : 
+                                                          item.selectedVariant.size || 'N/A'}
                                                       </p>
                                                     ) : item.product?.variants && item.product.variants.length === 1 ? (
                                                       <p className="text-sm text-blue-500">
-                                                        Size: {item.product.variants[0].size?.value}{item.product.variants[0].size?.unit}
+                                                        Size: {typeof item.product.variants[0].size === 'object' ? 
+                                                          `${item.product.variants[0].size.value || ''}${item.product.variants[0].size.unit || ''}` : 
+                                                          item.product.variants[0].size || 'N/A'}
                                                       </p>
                                                     ) : item.product?.variants && item.product.variants.length > 1 ? (
                                                       <p className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block">
@@ -1581,11 +1585,13 @@ export default function AdminOrders() {
                                                     
                                                     {item.selectedFlavor ? (
                                                       <p className="text-sm text-purple-600 font-medium">
-                                                        ✓ Flavor: {item.selectedFlavor.name}
+                                                        ✓ Flavor: {typeof item.selectedFlavor === 'object' ? 
+                                                          item.selectedFlavor.name || 'N/A' : 
+                                                          item.selectedFlavor}
                                                       </p>
                                                     ) : item.product?.flavors && item.product.flavors.filter(f => f.isActive).length === 1 ? (
                                                       <p className="text-sm text-purple-500">
-                                                        Flavor: {item.product.flavors.find(f => f.isActive)?.name}
+                                                        Flavor: {item.product.flavors.find(f => f.isActive)?.name || 'N/A'}
                                                       </p>
                                                     ) : item.product?.flavors && item.product.flavors.filter(f => f.isActive).length > 1 ? (
                                                       <p className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block">

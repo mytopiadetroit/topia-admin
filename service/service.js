@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-      //  const ConstantsUrl = "http://localhost:5000/api/";
-      const ConstantsUrl = "https://api.mypsyguide.io/api/";
+      // const ConstantsUrl = "http://localhost:5000/api/";
+       const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -1208,6 +1208,61 @@ const fetchSMSReplyDetails = async (replyId, router) => {
   }
 };
 
+const fetchAllSubscriptions = async (router, params = {}) => {
+  try {
+    return await Api('get', 'subscriptions/admin/all', null, router, params);
+  } catch (error) {
+    console.error('Error fetching subscriptions:', error);
+    throw error;
+  }
+};
+
+const fetchSubscriptionSettings = async (router) => {
+  try {
+    return await Api('get', 'subscriptions/settings', null, router);
+  } catch (error) {
+    console.error('Error fetching subscription settings:', error);
+    throw error;
+  }
+};
+
+const updateSubscriptionSettings = async (data, router) => {
+  try {
+    return await Api('put', 'subscriptions/settings', data, router);
+  } catch (error) {
+    console.error('Error updating subscription settings:', error);
+    throw error;
+  }
+};
+
+const fetchSubscriptionById = async (id, router) => {
+  try {
+    return await Api('get', `subscriptions/admin/all`, null, router, { page: 1, limit: 100 });
+  } catch (error) {
+    console.error('Error fetching subscription:', error);
+    throw error;
+  }
+};
+
+const updateSubscriptionAdmin = async (id, data, router) => {
+  try {
+    return await Api('put', `subscriptions/admin/${id}`, data, router);
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    throw error;
+  }
+};
+
+// Product statistics helper
+const fetchProductStats = async (router) => {
+  try {
+    return await Api('get', 'admin/product-stats', null, router);
+  } catch (error) {
+    console.error('Error fetching product stats:', error);
+    throw error;
+  }
+};
+
 export {
   Api,
   timeSince,
@@ -1317,7 +1372,13 @@ export {
   fetchSMSReplyStats,
   respondToSMSReply,
   updateSMSReplyStatus,
-  fetchSMSReplyDetails
+  fetchSMSReplyDetails,
+  fetchAllSubscriptions,
+  fetchSubscriptionSettings,
+  updateSubscriptionSettings,
+  fetchSubscriptionById,
+  updateSubscriptionAdmin,
+  fetchProductStats
 };
 
 // User Notes Management helpers

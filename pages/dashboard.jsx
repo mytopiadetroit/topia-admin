@@ -13,7 +13,7 @@ import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import AnalyticsTab from '@/components/AnalyticsTab';
 // import { useRouter } from 'next/router';
-import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors, exportCustomersData } from '@/service/service';
+import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors, exportCustomersData, fetchProductStats } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
 import BirthdayCard from '@/components/BirthdayCard';
 
@@ -42,6 +42,9 @@ export default function Dashboard() {
   const [userModalLoading, setUserModalLoading] = useState(false);
   const [michiganTime, setMichiganTime] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
+  const [productStats, setProductStats] = useState(null);
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+  const [outOfStockProducts, setOutOfStockProducts] = useState([]);
 
   // Export customers data - Using service helper
   const handleExportCustomers = async () => {
@@ -64,13 +67,14 @@ export default function Dashboard() {
     const load = async () => {
       try {
         setLoading(true);
-        const [uRes, oRes, pRes, lRes, pvRes, vRes] = await Promise.all([
+        const [uRes, oRes, pRes, lRes, pvRes, vRes, psRes] = await Promise.all([
           fetchAllUsers(router, { page: 1, limit: 10000 }), // High limit for birthday calculations
           fetchAllOrders(router, { page: 1, limit: 100 }),
           fetchAllProducts(router, { page: 1, limit: 100 }),
           fetchTodayLogins(router),
           fetchPendingVerificationsCount(router),
-          fetchAllVisitors(router, { page: 1, limit: 1 }) // Just need statistics
+          fetchAllVisitors(router, { page: 1, limit: 1 }), // Just need statistics
+          fetchProductStats(router) // New product stats API
         ]);
         if (uRes?.success) setUsers(uRes.data || []);
         if (oRes?.success) setOrders(oRes.data || []);
@@ -78,6 +82,10 @@ export default function Dashboard() {
         if (lRes?.success) setTodayLogins(lRes.count || 0);
         if (pvRes?.success) setPendingVerifications(pvRes.count || 0);
         if (vRes?.success) setTodayCheckIns(vRes.statistics?.todayVisitors || 0);
+        if (psRes?.success) {
+          setProductStats(psRes.data);
+          setOutOfStockProducts(psRes.data.outOfStockProducts || []);
+        }
       } finally {
         setLoading(false);
       }
@@ -109,6 +117,14 @@ export default function Dashboard() {
     
     return () => clearInterval(interval);
   }, []);
+
+  const handleViewOutOfStock = () => {
+    setShowOutOfStockModal(true);
+  };
+
+  const closeOutOfStockModal = () => {
+    setShowOutOfStockModal(false);
+  };
 
   const handleViewUser = async (userId) => {
     try {
@@ -242,7 +258,7 @@ export default function Dashboard() {
   const fulfilledOrders = useMemo(() => orders.filter(o => o.status === 'fulfilled').length, [orders]);
   const completedOrders = useMemo(() => orders.filter(o => o.status === 'completed').length, [orders]);
   const pendingOrders = useMemo(() => orders.filter(o => o.status === 'pending').length, [orders]);
-  const outOfStockProducts = useMemo(() => products.filter(p => p.stock === 0).length, [products]);
+  const outOfStockProductsCount = useMemo(() => products.filter(p => p.stock === 0).length, [products]);
 
   const stats = [
     {
@@ -304,11 +320,27 @@ export default function Dashboard() {
       link: '/admin/orders'
     },
     {
+      title: 'Total Products',
+      value: String(productStats?.totalProducts || 0),
+      icon: '�',
+      bgColor: 'bg-teal-50',
+      iconBg: 'bg-teal-100'
+    },
+    {
+      title: 'Total Variants/Flavors',
+      value: String((productStats?.totalVariants || 0) + (productStats?.totalFlavors || 0)),
+      icon: '🎯',
+      bgColor: 'bg-pink-50',
+      iconBg: 'bg-pink-100'
+    },
+    {
       title: 'Out of Stock Products',
-      value: String(outOfStockProducts),
+      value: String(productStats?.outOfStockCount || outOfStockProductsCount),
       icon: '🚫',
       bgColor: 'bg-red-50',
-      iconBg: 'bg-red-100'
+      iconBg: 'bg-red-100',
+      hasDetailView: true,
+      onViewDetails: handleViewOutOfStock
     },
     {
       title: 'Fulfilled Orders',
@@ -714,6 +746,91 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-end p-6 border-t border-gray-200">
                 <button onClick={closeUserModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Out of Stock Products Modal */}
+        {showOutOfStockModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Out of Stock Products</h2>
+                <button onClick={closeOutOfStockModal} className="text-gray-400 hover:text-gray-500">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="p-6">
+                {outOfStockProducts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-6xl mb-4">🎉</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">All Products In Stock!</h3>
+                    <p className="text-gray-500">Great job! No products are currently out of stock.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                      <div className="flex items-center">
+                        <div className="text-red-400 mr-3">
+                          <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-medium text-red-800">
+                            {outOfStockProducts.length} Product{outOfStockProducts.length !== 1 ? 's' : ''} Out of Stock
+                          </h3>
+                          <p className="text-sm text-red-700 mt-1">
+                            These products need immediate attention to restock inventory.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4">
+                      {outOfStockProducts.map((product, index) => (
+                        <div key={product._id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-900 mb-2">{product.name}</h4>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <span className="font-medium text-gray-600">Stock:</span>
+                                  <span className="ml-2 text-red-600 font-medium">{product.stock} items</span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-600">Reason:</span>
+                                  <span className="ml-2 text-gray-900">{product.reason}</span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-600">Variants:</span>
+                                  <span className="ml-2 text-gray-900">{product.variantCount}</span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-gray-600">Flavors:</span>
+                                  <span className="ml-2 text-gray-900">{product.flavorCount}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                Out of Stock
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                   
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end p-6 border-t border-gray-200">
+                <button onClick={closeOutOfStockModal} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
                   Close
                 </button>
               </div>
