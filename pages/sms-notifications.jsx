@@ -27,7 +27,9 @@ import {
   fetchSMSReplyStats,
   respondToSMSReply,
   updateSMSReplyStatus,
-  fetchSMSReplyDetails
+  fetchSMSReplyDetails,
+  previewTopiaMembers,
+  sendToTopiaMembers
 } from '../service/service';
 
 const messageTemplates = {
@@ -91,6 +93,12 @@ export default function SMSNotifications() {
   const [selectedReply, setSelectedReply] = useState(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+
+  const [showTopiaModal, setShowTopiaModal] = useState(false);
+  const [topiaMessage, setTopiaMessage] = useState('');
+  const [topiaMembers, setTopiaMembers] = useState([]);
+  const [selectedTopiaMembers, setSelectedTopiaMembers] = useState([]);
+  const [topiaLoading, setTopiaLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
@@ -393,6 +401,57 @@ export default function SMSNotifications() {
     }
   };
 
+  const previewTopiaMembersHandler = async () => {
+    setTopiaLoading(true);
+    try {
+      const data = await previewTopiaMembers(router);
+      if (data.success) {
+        setTopiaMembers(data.members);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setTopiaLoading(false);
+    }
+  };
+
+  const sendToTopiaMembersHandler = async () => {
+    if (!topiaMessage.trim()) {
+      Swal.fire({ icon: 'warning', title: 'Message Required', text: 'Please enter a message' });
+      return;
+    }
+
+    if (selectedTopiaMembers.length === 0) {
+      Swal.fire({ icon: 'warning', title: 'No Recipients', text: 'Please select at least one member' });
+      return;
+    }
+
+    setTopiaLoading(true);
+    try {
+      const data = await sendToTopiaMembers(topiaMessage, selectedTopiaMembers, router);
+      
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'SMS Sent!',
+          text: `Message sent to ${data.totalMembers} Topia Circle members`,
+          confirmButtonColor: '#10b981'
+        });
+        setShowTopiaModal(false);
+        setTopiaMessage('');
+        setSelectedTopiaMembers([]);
+        setActiveTab('history');
+        fetchHistoryData();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: data.message });
+      }
+    } catch (error) {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to send SMS' });
+    } finally {
+      setTopiaLoading(false);
+    }
+  };
+
   // SMS Replies functions
   const fetchRepliesData = async () => {
     setRepliesLoading(true);
@@ -513,34 +572,33 @@ export default function SMSNotifications() {
       <div className="main-content">
         <div className="p-6 max-w-7xl mx-auto">
         
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <MessageSquare className="w-8 h-8 text-blue-600" />
-                SMS Notifications
-              </h1>
-              <p className="text-gray-600 mt-2">Send SMS to your customers </p>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquare className="w-6 h-6 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">SMS Notifications</h1>
             </div>
-            <div className="flex gap-3">
+            <p className="text-gray-600 text-sm mb-4">Send SMS to your customers</p>
+            
+            <div className="flex gap-4">
               <button
                 onClick={() => setShowIndividualModal(true)}
-                className="bg-green-100 text-green-700 px-4 py-2 rounded-xl font-semibold hover:bg-green-200 transition-all flex items-center gap-2"
+                className="bg-green-100 text-green-700 px-4 py-2.5 rounded-lg font-medium hover:bg-green-200 transition-all flex items-center gap-2"
               >
-                <Users className="w-5 h-5" />
+                <Users className="w-4 h-4" />
                 Send to Individual
               </button>
               <button
                 onClick={previewBirthdayUsersHandler}
                 disabled={birthdayLoading}
-                className="bg-purple-100 text-purple-700 px-4 py-2 rounded-xl font-semibold hover:bg-purple-200 transition-all flex items-center gap-2"
+                className="bg-purple-100 text-purple-700 px-4 py-2.5 rounded-lg font-medium hover:bg-purple-200 transition-all flex items-center gap-2"
               >
-                <Eye className="w-5 h-5" />
+                <Eye className="w-4 h-4" />
                 Preview Birthday Users
               </button>
               <button
                 onClick={sendBirthdaySMSHandler}
                 disabled={birthdayLoading}
-                className="bg-[#80A6F7] text-white px-6 py-2 rounded-xl font-semibold hover:from-pink-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-lg"
+                className="bg-[#80A6F7] text-white px-5 py-2.5 rounded-lg font-medium hover:from-pink-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-lg"
               >
                 {birthdayLoading ? (
                   <>
@@ -552,6 +610,15 @@ export default function SMSNotifications() {
                     🎂 Send Birthday SMS
                   </>
                 )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTopiaModal(true);
+                  previewTopiaMembersHandler();
+                }}
+                className="bg-[#80A6F7] text-white px-5 py-2.5 rounded-lg font-medium hover:bg-[#6B92E8] transition-all flex items-center gap-2 shadow-lg"
+              >
+                👑 Send to Topia Members
               </button>
             </div>
           </div>
@@ -1628,6 +1695,98 @@ export default function SMSNotifications() {
         </div>
       )}
 
+      {/* Topia Circle Modal */}
+      {showTopiaModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold mb-4">Send SMS to Topia Circle Members</h2>
+            
+            <div className="bg-purple-50 p-4 rounded-lg mb-4">
+              <p className="text-sm text-purple-700">
+                {topiaLoading ? 'Loading...' : `${selectedTopiaMembers.length > 0 ? `Selected ${selectedTopiaMembers.length} of ${topiaMembers.length}` : `${topiaMembers.length} active Topia Circle members`}`}
+              </p>
+            </div>
+
+            {topiaMembers.length > 0 && (
+              <div className="mb-4 max-h-48 overflow-y-auto border rounded-lg">
+                <div className="bg-gray-50 px-4 py-2 border-b flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-700">Recipients ({topiaMembers.length})</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedTopiaMembers(topiaMembers.map(m => m._id))}
+                      className="text-xs text-blue-600 hover:text-blue-700"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setSelectedTopiaMembers([])}
+                      className="text-xs text-gray-600 hover:text-gray-700"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="divide-y">
+                  {topiaMembers.map((member, index) => (
+                    <div key={index} className="px-4 py-2 flex items-center justify-between hover:bg-gray-50">
+                      <div className="flex items-center gap-3 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedTopiaMembers.includes(member._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTopiaMembers([...selectedTopiaMembers, member._id]);
+                            } else {
+                              setSelectedTopiaMembers(selectedTopiaMembers.filter(id => id !== member._id));
+                            }
+                          }}
+                          className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{member.fullName}</p>
+                          <p className="text-xs text-gray-500">{member.phone}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                        Topia Member
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <textarea
+              value={topiaMessage}
+              onChange={(e) => setTopiaMessage(e.target.value)}
+              placeholder="Enter your message..."
+              className="w-full px-4 py-3 border rounded-lg mb-4"
+              rows={5}
+            />
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={sendToTopiaMembersHandler}
+                disabled={topiaLoading || !topiaMessage.trim() || selectedTopiaMembers.length === 0}
+                className="flex-1 bg-[#5B8DE8] text-white py-2 rounded-lg hover:bg-[#4A7DD4] disabled:opacity-50"
+              >
+                {topiaLoading ? 'Sending...' : `Send SMS${selectedTopiaMembers.length > 0 ? ` (${selectedTopiaMembers.length})` : ''}`}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTopiaModal(false);
+                  setSelectedTopiaMembers([]);
+                }}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }
+

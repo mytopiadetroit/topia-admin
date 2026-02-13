@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-      // const ConstantsUrl = "http://localhost:5000/api/";
-       const ConstantsUrl = "https://api.mypsyguide.io/api/";
+       const ConstantsUrl = "http://localhost:5000/api/";
+      //  const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -1414,6 +1414,96 @@ const deleteUserNote = async (noteId, router) => {
     return await Api('delete', `user-notes/${noteId}`, null, router);
   } catch (error) {
     console.error('Error deleting user note:', error);
+    throw error;
+  }
+};
+export const fetchDashboardStats = async (period = 'all', router) => {
+  try {
+    return await Api('get', `analytics/dashboard-stats?period=${period}`, null, router);
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    throw error;
+  }
+};
+
+export const previewTopiaMembers = async (router) => {
+  try {
+    return await Api('get', 'sms/preview-topia-members', null, router);
+  } catch (error) {
+    console.error('Error previewing Topia members:', error);
+    throw error;
+  }
+};
+
+export const sendToTopiaMembers = async (message, selectedMembers, router) => {
+  try {
+    return await Api('post', 'sms/send-to-topia-members', { message, selectedMembers }, router);
+  } catch (error) {
+    console.error('Error sending SMS to Topia members:', error);
+    throw error;
+  }
+};
+
+// Points Management APIs
+export const loadPointsUsers = async (page = 1, search = '', router) => {
+  try {
+    return await Api('get', `users?page=${page}&limit=40&search=${search}&status=verified`, null, router);
+  } catch (error) {
+    console.error('Error loading users:', error);
+    throw error;
+  }
+};
+
+export const loadRewardTasksForPoints = async (router) => {
+  try {
+    return await Api('get', 'rewards/admin/tasks', null, router);
+  } catch (error) {
+    console.error('Error loading reward tasks:', error);
+    throw error;
+  }
+};
+
+export const loadPointsStats = async (router) => {
+  try {
+    return await Api('get', 'points/admin/stats', null, router);
+  } catch (error) {
+    console.error('Error loading points stats:', error);
+    throw error;
+  }
+};
+
+export const loadPointsAdjustments = async (filters, page, router) => {
+  try {
+    const params = new URLSearchParams();
+    params.append('page', page);
+    params.append('limit', 20);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.type && filters.type !== 'all') params.append('type', filters.type);
+    if (filters.userId) params.append('userId', filters.userId);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+    
+    return await Api('get', `points/admin/adjustments?${params}`, null, router);
+  } catch (error) {
+    console.error('Error loading adjustments:', error);
+    throw error;
+  }
+};
+
+export const adjustUserPoints = async (userId, adjustmentData, router) => {
+  try {
+    return await Api('post', `points/admin/adjust/${userId}`, adjustmentData, router);
+  } catch (error) {
+    console.error('Error adjusting points:', error);
+    throw error;
+  }
+};
+
+export const adminUpgradeUserToTopia = async (userId, billingAddress, paymentNote, router) => {
+  try {
+    return await Api('post', `subscriptions/admin/upgrade/${userId}`, { billingAddress, paymentNote }, router);
+  } catch (error) {
+    console.error('Error upgrading user to Topia Circle:', error);
     throw error;
   }
 };

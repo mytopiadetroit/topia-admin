@@ -7,13 +7,14 @@ import {
   Mail,
   Download,
   BarChart3,
-  LayoutDashboard
+  LayoutDashboard,
+  Crown
 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import Layout from '@/components/Layout';
 import AnalyticsTab from '@/components/AnalyticsTab';
 // import { useRouter } from 'next/router';
-import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors, exportCustomersData, fetchProductStats } from '@/service/service';
+import { fetchAllUsers, fetchAllOrders, fetchTodayRegistrations, fetchTodayLogins, fetchRegistrationsByDate, fetchLoginsByDate, fetchPendingVerificationsCount, fetchUserById, toast, fetchAllProducts, fetchAllVisitors, exportCustomersData, fetchProductStats, fetchDashboardStats } from '@/service/service';
 import { RegistrationsModal, LoginsModal } from '@/components/dashboard-modals';
 import BirthdayCard from '@/components/BirthdayCard';
 
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [productStats, setProductStats] = useState(null);
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
   const [outOfStockProducts, setOutOfStockProducts] = useState([]);
+  const [topiaStats, setTopiaStats] = useState({ topiaCircleMembers: 0 });
 
   // Export customers data - Using service helper
   const handleExportCustomers = async () => {
@@ -68,13 +70,13 @@ export default function Dashboard() {
       try {
         setLoading(true);
         const [uRes, oRes, pRes, lRes, pvRes, vRes, psRes] = await Promise.all([
-          fetchAllUsers(router, { page: 1, limit: 10000 }), // High limit for birthday calculations
+          fetchAllUsers(router, { page: 1, limit: 10000 }),
           fetchAllOrders(router, { page: 1, limit: 100 }),
           fetchAllProducts(router, { page: 1, limit: 100 }),
           fetchTodayLogins(router),
           fetchPendingVerificationsCount(router),
-          fetchAllVisitors(router, { page: 1, limit: 1 }), // Just need statistics
-          fetchProductStats(router) // New product stats API
+          fetchAllVisitors(router, { page: 1, limit: 1 }),
+          fetchProductStats(router)
         ]);
         if (uRes?.success) setUsers(uRes.data || []);
         if (oRes?.success) setOrders(oRes.data || []);
@@ -86,6 +88,9 @@ export default function Dashboard() {
           setProductStats(psRes.data);
           setOutOfStockProducts(psRes.data.outOfStockProducts || []);
         }
+        
+        const tsRes = await fetchDashboardStats('all', router);
+        if (tsRes?.success) setTopiaStats(tsRes.data);
       } finally {
         setLoading(false);
       }
@@ -261,6 +266,14 @@ export default function Dashboard() {
   const outOfStockProductsCount = useMemo(() => products.filter(p => p.stock === 0).length, [products]);
 
   const stats = [
+    {
+      title: 'Topia Circle Members',
+      value: String(topiaStats.topiaCircleMembers || 0),
+      icon: '',
+      bgColor: 'bg-purple-50',
+      iconBg: 'bg-purple-100',
+      link: '/subscriptions'
+    },
     {
       title: 'Total Registrations',
       value: String(totalRegistrations),
@@ -451,7 +464,6 @@ export default function Dashboard() {
             {/* Header with Export Button */}
             <div className="mb-6 flex bg-white p-4 rounded-lg shadow-sm items-center justify-between">
           <div>
-          
             <p className="text-sm text-gray-500 mt-1">Export customer data with complete order history</p>
           </div>
           <button

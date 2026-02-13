@@ -9,7 +9,8 @@ import {
   toggleRewardTaskVisibility,
   fetchHomepageSettings,
   updateHomepageSettings,
-  toast 
+  toast,
+  loadPointsUsers
 } from '../service/service';
 import Swal from 'sweetalert2';
 import { Eye, EyeOff, Edit2, Trash2, Globe } from 'lucide-react';
@@ -54,12 +55,7 @@ const RewardTasksManagement = () => {
   const loadUsers = async (page = 1, search = '') => {
     try {
       setLoadingUsers(true);
-      const response = await fetch(`https://api.mypsyguide.io/api/users?page=${page}&limit=40&search=${search}&status=verified`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
-      });
-      const data = await response.json();
+      const data = await loadPointsUsers(page, search, router);
       if (data.success) {
         setAllUsers(data.data || []);
         setFilteredUsers(data.data || []);

@@ -342,6 +342,7 @@ const AnalyticsTab = () => {
             onChange={(e) => setPeriod(e.target.value)}
             className="px-5 py-3 border-2 border-[#80A6F7]/30 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#80A6F7] focus:border-transparent font-medium text-gray-700 shadow-sm hover:shadow-md transition-all cursor-pointer"
           >
+            <option value="all">🌐 All Time</option>
             <option value="7">📅 Last 7 Days</option>
             <option value="30">📅 Last 30 Days</option>
             <option value="60">📅 Last 60 Days</option>

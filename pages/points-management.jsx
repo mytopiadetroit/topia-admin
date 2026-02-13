@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '@/components/sidebar';
 import Swal from 'sweetalert2';
-import { toast } from '../service/service';
+import { 
+  toast,
+  loadPointsUsers,
+  loadRewardTasksForPoints,
+  loadPointsStats,
+  loadPointsAdjustments,
+  adjustUserPoints
+} from '../service/service';
 
 const PointsManagement = () => {
   const router = useRouter();
@@ -65,12 +72,7 @@ const PointsManagement = () => {
 
   const loadUsers = async (page = 1, search = '') => {
     try {
-      const response = await fetch(`https://api.mypsyguide.io/api/users?page=${page}&limit=40&search=${search}&status=verified`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
-      });
-      const data = await response.json();
+      const data = await loadPointsUsers(page, search, router);
       if (data.success) {
         setUsers(data.data || []);
         if (data.pagination) {
@@ -93,12 +95,7 @@ const PointsManagement = () => {
 
   const loadRewardTasks = async () => {
     try {
-      const response = await fetch('https://api.mypsyguide.io/api/rewards/admin/tasks', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
-      });
-      const data = await response.json();
+      const data = await loadRewardTasksForPoints(router);
       if (data.success) {
         setRewardTasks(data.data || []);
       }
@@ -109,12 +106,7 @@ const PointsManagement = () => {
 
   const loadStats = async () => {
     try {
-      const response = await fetch('https://api.mypsyguide.io/api/points/admin/stats', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
-      });
-      const data = await response.json();
+      const data = await loadPointsStats(router);
       if (data.success) {
         setStats(data.data);
       }
@@ -125,23 +117,7 @@ const PointsManagement = () => {
 
   const loadAdjustments = async (page = 1) => {
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '20'
-      });
-      
-      if (adjustmentFilters.search) params.append('search', adjustmentFilters.search);
-      if (adjustmentFilters.type !== 'all') params.append('type', adjustmentFilters.type);
-      if (adjustmentFilters.userId) params.append('userId', adjustmentFilters.userId);
-      if (adjustmentFilters.startDate) params.append('startDate', adjustmentFilters.startDate);
-      if (adjustmentFilters.endDate) params.append('endDate', adjustmentFilters.endDate);
-
-      const response = await fetch(`https://api.mypsyguide.io/api/points/admin/adjustments?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        }
-      });
-      const data = await response.json();
+      const data = await loadPointsAdjustments(adjustmentFilters, page, router);
       if (data.success) {
         setAdjustments(data.data || []);
         if (data.pagination) {
@@ -264,23 +240,14 @@ const PointsManagement = () => {
 
     setAdjusting(true);
     try {
-      const response = await fetch(`https://api.mypsyguide.io/api/points/admin/adjust/${selectedUser._id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
-        },
-        body: JSON.stringify({
-          adjustmentType: adjustmentData.adjustmentType,
-          points: parseFloat(adjustmentData.points),
-          reason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : adjustmentData.reason,
-          rewardTaskId: adjustmentData.rewardTaskId || null,
-          customReason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : '',
-          notes: adjustmentData.notes
-        })
-      });
-
-      const data = await response.json();
+      const data = await adjustUserPoints(selectedUser._id, {
+        adjustmentType: adjustmentData.adjustmentType,
+        points: parseFloat(adjustmentData.points),
+        reason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : adjustmentData.reason,
+        rewardTaskId: adjustmentData.rewardTaskId || null,
+        customReason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : '',
+        notes: adjustmentData.notes
+      }, router);
 
       if (data.success) {
         Swal.fire({

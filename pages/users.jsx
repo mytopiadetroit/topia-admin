@@ -1,7 +1,23 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Sidebar from '../components/sidebar';
-import { fetchAllUsers, deleteUser, fetchUserById, toast, updateUserStatusAdmin, updateUser, fetchUserNotes, createUserNote, updateUserNote, deleteUserNote, adminCheckInUser, fetchVisitorByUserId } from '../service/service';
+import { 
+  fetchAllUsers, 
+  deleteUser, 
+  fetchUserById, 
+  toast, 
+  updateUserStatusAdmin, 
+  updateUser, 
+  fetchUserNotes, 
+  createUserNote, 
+  updateUserNote, 
+  deleteUserNote, 
+  adminCheckInUser, 
+  fetchVisitorByUserId,
+  loadRewardTasksForPoints,
+  adjustUserPoints,
+  adminUpgradeUserToTopia
+} from '../service/service';
 import Swal from 'sweetalert2';
 import {
   Users,
@@ -546,12 +562,7 @@ export default function UsersPage() {
 
   const loadRewardTasks = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.mypsyguide.io'}/api/rewards/admin/tasks`, {
-        headers: {
-          'Authorization': `jwt ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
+      const data = await loadRewardTasksForPoints(router);
       if (data.success) {
         setRewardTasks(data.data || []);
       }
@@ -648,22 +659,13 @@ export default function UsersPage() {
 
     setAdjustingPoints(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.mypsyguide.io'}/api/points/admin/adjust/${selectedUser._id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `jwt ${localStorage.getItem('adminToken') || localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          adjustmentType: adjustmentData.adjustmentType,
-          points: parseFloat(adjustmentData.points),
-          reason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : adjustmentData.reason,
-          customReason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : '',
-          notes: adjustmentData.notes
-        })
-      });
-
-      const data = await response.json();
+      const data = await adjustUserPoints(selectedUser._id, {
+        adjustmentType: adjustmentData.adjustmentType,
+        points: parseFloat(adjustmentData.points),
+        reason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : adjustmentData.reason,
+        customReason: adjustmentData.reason === 'custom' ? adjustmentData.customReason : '',
+        notes: adjustmentData.notes
+      }, router);
 
       if (data.success) {
         await Swal.fire({
@@ -692,6 +694,58 @@ export default function UsersPage() {
       toast.error('An error occurred while adjusting points');
     } finally {
       setAdjustingPoints(false);
+    }
+  };
+
+  const handleUpgradeToTopia = async (user) => {
+    const confirmResult = await Swal.fire({
+      title: 'Upgrade to Topia Circle?',
+      html: `
+        <p>User: <strong>${user.fullName}</strong></p>
+        <p>This will activate Topia Circle membership for this user.</p>
+        <p>Monthly fee: <strong>$100</strong></p>
+        <p>Monthly value: <strong>$200</strong></p>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#80A6F7',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Yes, upgrade!',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (!confirmResult.isConfirmed) return;
+
+    try {
+      const data = await adminUpgradeUserToTopia(user._id, null, 'Upgraded by admin in-store', router);
+      
+      if (data.success) {
+        await Swal.fire({
+          title: 'Success!',
+          text: 'User upgraded to Topia Circle successfully!',
+          icon: 'success',
+          confirmButtonColor: '#10B981',
+          timer: 2000,
+          timerProgressBar: true
+        });
+        
+        setUsers(prevUsers => 
+          prevUsers.map(u => 
+            u._id === user._id 
+              ? { ...u, isTopiaCircleMember: true, subscriptionStatus: 'active' }
+              : u
+          )
+        );
+        
+        if (selectedUser && selectedUser._id === user._id) {
+          setSelectedUser({ ...selectedUser, isTopiaCircleMember: true, subscriptionStatus: 'active' });
+        }
+      } else {
+        toast.error(data.message || 'Failed to upgrade user');
+      }
+    } catch (error) {
+      console.error('Error upgrading user:', error);
+      toast.error('An error occurred while upgrading user');
     }
   };
 
@@ -1373,6 +1427,18 @@ export default function UsersPage() {
               <div className="flex items-center space-x-2">
                 {!isEditMode && selectedUser && (
                   <>
+                    {!selectedUser.isTopiaCircleMember && (
+                      <button
+                        type="button"
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-[#80A6F7] hover:bg-[#6B92E8] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        onClick={() => handleUpgradeToTopia(selectedUser)}
+                      >
+                        <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        Upgrade to Topia
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
