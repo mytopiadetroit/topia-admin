@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { ArrowLeft, User, Calendar, Package, Edit, Save, X } from 'lucide-react'
+import { ArrowLeft, User, Calendar, Package, Edit, Save, X, CreditCard, Pause, Play } from 'lucide-react'
 import Layout from '@/components/Layout'
-import { fetchAllSubscriptions, updateSubscriptionAdmin, toast } from '../../service/service'
+import Swal from 'sweetalert2'
+import { 
+  fetchAllSubscriptions, 
+  updateSubscriptionAdmin, 
+  updateSubscriptionBillingDate,
+  updateSubscriptionPaymentMethod,
+  toggleSubscriptionStatus,
+  toast 
+} from '../../service/service'
 
 export default function SubscriptionDetail() {
   const router = useRouter()
@@ -15,6 +23,10 @@ export default function SubscriptionDetail() {
     allergies: [],
     currentBoxItems: []
   })
+  const [showBillingDateModal, setShowBillingDateModal] = useState(false)
+  const [newBillingDay, setNewBillingDay] = useState('')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [newPaymentMethod, setNewPaymentMethod] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -62,6 +74,81 @@ export default function SubscriptionDetail() {
     } catch (error) {
       console.error('Error updating subscription:', error)
       toast.error('Failed to update subscription')
+    }
+  }
+
+  const handleUpdateBillingDate = async () => {
+    if (!newBillingDay || newBillingDay < 1 || newBillingDay > 28) {
+      toast.error('Please enter a day between 1 and 28')
+      return
+    }
+
+    try {
+      const data = await updateSubscriptionBillingDate(id, parseInt(newBillingDay), router)
+      if (data.success) {
+        // Reload the subscription to get the updated data with populated fields
+        await loadSubscription()
+        setShowBillingDateModal(false)
+        setNewBillingDay('')
+        toast.success('Billing date updated successfully')
+      } else {
+        toast.error(data.message || 'Failed to update billing date')
+      }
+    } catch (error) {
+      console.error('Error updating billing date:', error)
+      toast.error('Failed to update billing date')
+    }
+  }
+
+  const handleUpdatePaymentMethod = async () => {
+    if (!newPaymentMethod.trim()) {
+      toast.error('Please enter payment method ID')
+      return
+    }
+
+    try {
+      const data = await updateSubscriptionPaymentMethod(id, newPaymentMethod, router)
+      if (data.success) {
+        // Reload the subscription to get the updated data with populated fields
+        await loadSubscription()
+        setShowPaymentModal(false)
+        setNewPaymentMethod('')
+        toast.success('Payment method updated successfully')
+      } else {
+        toast.error(data.message || 'Failed to update payment method')
+      }
+    } catch (error) {
+      console.error('Error updating payment method:', error)
+      toast.error('Failed to update payment method')
+    }
+  }
+
+  const handleToggleStatus = async (action) => {
+    const result = await Swal.fire({
+      title: `${action === 'pause' ? 'Pause' : 'Activate'} Subscription?`,
+      text: `Are you sure you want to ${action} this subscription?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: action === 'pause' ? '#EF4444' : '#10B981',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: `Yes, ${action}!`,
+      cancelButtonText: 'Cancel'
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      const data = await toggleSubscriptionStatus(id, action, router)
+      if (data.success) {
+        // Reload the subscription to get the updated data with populated fields
+        await loadSubscription()
+        toast.success(`Subscription ${action === 'pause' ? 'paused' : 'activated'} successfully`)
+      } else {
+        toast.error(data.message || 'Failed to update status')
+      }
+    } catch (error) {
+      console.error('Error toggling status:', error)
+      toast.error('Failed to update status')
     }
   }
 
@@ -143,7 +230,8 @@ export default function SubscriptionDetail() {
     const colors = {
       active: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
-      expired: 'bg-gray-100 text-gray-800'
+      expired: 'bg-gray-100 text-gray-800',
+      paused: 'bg-yellow-100 text-yellow-800'
     }
     return (
       <span className={`px-3 py-1 rounded-full text-sm font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
@@ -198,6 +286,41 @@ export default function SubscriptionDetail() {
           
           <div className="flex items-center space-x-3">
             {getStatusBadge(subscription.status)}
+            
+            <button
+              onClick={() => setShowBillingDateModal(true)}
+              className="flex items-center px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+            >
+              <Calendar className="w-4 h-4 mr-1" />
+              Billing Date
+            </button>
+
+            <button
+              onClick={() => setShowPaymentModal(true)}
+              className="flex items-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+            >
+              <CreditCard className="w-4 h-4 mr-1" />
+              Payment
+            </button>
+
+            {subscription.status === 'active' ? (
+              <button
+                onClick={() => handleToggleStatus('pause')}
+                className="flex items-center px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm"
+              >
+                <Pause className="w-4 h-4 mr-1" />
+                Pause
+              </button>
+            ) : subscription.status === 'paused' ? (
+              <button
+                onClick={() => handleToggleStatus('activate')}
+                className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+              >
+                <Play className="w-4 h-4 mr-1" />
+                Activate
+              </button>
+            ) : null}
+
             {!editing ? (
               <button
                 onClick={() => setEditing(true)}
@@ -350,10 +473,16 @@ export default function SubscriptionDetail() {
                 <span className="text-sm text-gray-500">Start Date:</span>
                 <p className="font-medium">{formatDate(subscription.startDate)}</p>
               </div>
-              {subscription.status === 'active' && (
+              {subscription.nextBillingDate && (
                 <div>
-                  <span className="text-sm text-gray-500">Next Billing:</span>
+                  <span className="text-sm text-gray-500">Next Billing Date:</span>
                   <p className="font-medium">{formatDate(subscription.nextBillingDate)}</p>
+                </div>
+              )}
+              {subscription.billingDayOfMonth && (
+                <div>
+                  <span className="text-sm text-gray-500">Billing Day of Month:</span>
+                  <p className="font-medium">Day {subscription.billingDayOfMonth}</p>
                 </div>
               )}
               {subscription.cancellationDate && (
@@ -524,6 +653,77 @@ export default function SubscriptionDetail() {
           </div>
         )}
       </div>
+      {showBillingDateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold mb-4">Change Billing Date</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Set the day of month (1-28) when this member will be charged
+            </p>
+            <input
+              type="number"
+              min="1"
+              max="28"
+              value={newBillingDay}
+              onChange={(e) => setNewBillingDay(e.target.value)}
+              placeholder="Enter day (1-28)"
+              className="w-full px-4 py-3 border rounded-lg mb-4"
+            />
+            <div className="flex space-x-3">
+              <button
+                onClick={handleUpdateBillingDate}
+                className="flex-1 bg-[#80A6F7] text-white py-2 rounded-lg hover:bg-indigo-300"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => {
+                  setShowBillingDateModal(false);
+                  setNewBillingDay('');
+                }}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold mb-4">Update Payment Method</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter new payment method ID from payment gateway
+            </p>
+            <input
+              type="text"
+              value={newPaymentMethod}
+              onChange={(e) => setNewPaymentMethod(e.target.value)}
+              placeholder="Payment Method ID"
+              className="w-full px-4 py-3 border rounded-lg mb-4"
+            />
+            <div className="flex space-x-3">
+              <button
+                onClick={handleUpdatePaymentMethod}
+                className="flex-1 bg-[#80A6F7] text-white py-2 rounded-lg hover:bg-indigo-300"
+              >
+                Update
+              </button>
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setNewPaymentMethod('');
+                }}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

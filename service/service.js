@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-      //  const ConstantsUrl = "http://localhost:5000/api/";
-        const ConstantsUrl = "https://api.mypsyguide.io/api/";
+        // const ConstantsUrl = "http://localhost:5000/api/";
+         const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -1504,6 +1504,33 @@ export const adminUpgradeUserToTopia = async (userId, billingAddress, paymentNot
     return await Api('post', `subscriptions/admin/upgrade/${userId}`, { billingAddress, paymentNote }, router);
   } catch (error) {
     console.error('Error upgrading user to Topia Circle:', error);
+    throw error;
+  }
+};
+
+export const updateSubscriptionBillingDate = async (subscriptionId, billingDayOfMonth, router) => {
+  try {
+    return await Api('put', `subscriptions/admin/${subscriptionId}/billing-date`, { billingDayOfMonth }, router);
+  } catch (error) {
+    console.error('Error updating billing date:', error);
+    throw error;
+  }
+};
+
+export const updateSubscriptionPaymentMethod = async (subscriptionId, paymentMethodId, router) => {
+  try {
+    return await Api('put', `subscriptions/admin/${subscriptionId}/payment-method`, { paymentMethodId }, router);
+  } catch (error) {
+    console.error('Error updating payment method:', error);
+    throw error;
+  }
+};
+
+export const toggleSubscriptionStatus = async (subscriptionId, action, router) => {
+  try {
+    return await Api('put', `subscriptions/admin/${subscriptionId}/status`, { action }, router);
+  } catch (error) {
+    console.error('Error toggling subscription status:', error);
     throw error;
   }
 };
