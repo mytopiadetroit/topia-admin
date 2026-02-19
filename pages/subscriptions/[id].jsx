@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { ArrowLeft, User, Calendar, Package, Edit, Save, X, CreditCard, Pause, Play } from 'lucide-react'
+import { ArrowLeft, User, Calendar, Package, Edit, Save, X, CreditCard, Pause, Play, CheckCircle, Clock, Plus, History, ShoppingCart } from 'lucide-react'
 import Layout from '@/components/Layout'
 import Swal from 'sweetalert2'
+import ProductDetailModal from '@/components/ProductDetailModal'
+import SelectedProductsList from '@/components/SelectedProductsList'
 import { 
   fetchAllSubscriptions, 
   updateSubscriptionAdmin, 
   updateSubscriptionBillingDate,
   updateSubscriptionPaymentMethod,
   toggleSubscriptionStatus,
+  createBoxPickup,
+  fetchUserBoxHistory,
+  markBoxPickupStatus,
+  fetchAllProductsNoPagination,
   toast 
 } from '../../service/service'
 
@@ -25,14 +31,46 @@ export default function SubscriptionDetail() {
   })
   const [showBillingDateModal, setShowBillingDateModal] = useState(false)
   const [newBillingDay, setNewBillingDay] = useState('')
+  const [allProducts, setAllProducts] = useState([])
+  const [loadingProducts, setLoadingProducts] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
+  const [boxHistory, setBoxHistory] = useState(null)
+  const [showBoxHistoryModal, setShowBoxHistoryModal] = useState(false)
+  const [showCreateBoxModal, setShowCreateBoxModal] = useState(false)
+  const [showProductModal, setShowProductModal] = useState(false)
+  const [selectedProducts, setSelectedProducts] = useState([])
+  const [productVariants, setProductVariants] = useState({})
+  const [showProductDetailModal, setShowProductDetailModal] = useState(false)
+  const [currentProduct, setCurrentProduct] = useState(null)
+  const [tempSelectedVariants, setTempSelectedVariants] = useState([])
+  const [tempSelectedFlavors, setTempSelectedFlavors] = useState([])
 
   useEffect(() => {
     if (id) {
       loadSubscription()
     }
   }, [id])
+
+  useEffect(() => {
+    if (editing && allProducts.length === 0) {
+      loadProducts()
+    }
+  }, [editing])
+
+  const loadProducts = async () => {
+    try {
+      setLoadingProducts(true)
+      const data = await fetchAllProductsNoPagination(router)
+      if (data.success) {
+        setAllProducts(data.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading products:', error)
+    } finally {
+      setLoadingProducts(false)
+    }
+  }
 
   const loadSubscription = async () => {
     try {
@@ -150,6 +188,314 @@ export default function SubscriptionDetail() {
       console.error('Error toggling status:', error)
       toast.error('Failed to update status')
     }
+  }
+
+  const loadBoxHistory = async () => {
+    try {
+      const data = await fetchUserBoxHistory(subscription.userId._id, router)
+      if (data.success) {
+        setBoxHistory(data.data)
+      }
+    } catch (error) {
+      console.error('Error loading box history:', error)
+      toast.error('Failed to load box history')
+    }
+  }
+
+  const handleCreateBoxPickup = async () => {
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Create Box Pickup?',
+      html: `
+        <div class="text-left">
+          <p class="mb-2">This will create a new box pickup for:</p>
+          <p class="font-semibold">${subscription.userId?.fullName}</p>
+          <p class="text-sm text-gray-600 mt-2">Items: ${subscription.currentBoxItems?.length || 0}</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'Yes, Create Box',
+      cancelButtonText: 'Cancel'
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      // Show loading
+      Swal.fire({
+        title: 'Creating Box...',
+        text: 'Please wait',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
+        }
+      })
+
+      const data = await createBoxPickup({
+        userId: subscription.userId._id,
+        items: subscription.currentBoxItems || [],
+        scheduledDate: new Date(),
+        notes: 'Created by admin'
+      }, router)
+      
+      if (data.success) {
+        await Swal.fire({
+          title: 'Success!',
+          text: 'Box pickup created successfully',
+          icon: 'success',
+          confirmButtonColor: '#10B981',
+          timer: 2000
+        })
+        setShowCreateBoxModal(false)
+        if (showBoxHistoryModal) {
+          await loadBoxHistory()
+        }
+      } else {
+        Swal.fire({
+          title: 'Error!',
+          text: data.message || 'Failed to create box pickup',
+          icon: 'error',
+          confirmButtonColor: '#EF4444'
+        })
+      }
+    } catch (error) {
+      console.error('Error creating box pickup:', error)
+      Swal.fire({
+        title: 'Error!',
+        text: 'Failed to create box pickup',
+        icon: 'error',
+        confirmButtonColor: '#EF4444'
+      })
+    }
+  }
+
+  const handleMarkBoxPickup = async (boxId, status) => {
+    try {
+      const data = await markBoxPickupStatus(boxId, {
+        status,
+        pickedUpBy: 'Admin'
+      }, router)
+      
+      if (data.success) {
+        toast.success(`Box marked as ${status}`)
+        await loadBoxHistory()
+      } else {
+        toast.error(data.message || 'Failed to update box status')
+      }
+    } catch (error) {
+      console.error('Error marking box pickup:', error)
+      toast.error('Failed to update box status')
+    }
+  }
+
+  const handleShowBoxHistory = async () => {
+    setShowBoxHistoryModal(true)
+    await loadBoxHistory()
+  }
+
+  const handleProductClick = (product) => {
+    setCurrentProduct(product)
+    setShowProductDetailModal(true)
+  }
+
+  const handleAddToSelection = (product, selectedVariants, selectedFlavors) => {
+    const hasVariants = product.hasVariants && product.variants?.length > 0
+    const hasFlavors = product.flavors?.length > 0
+
+    if (hasVariants && selectedVariants.length === 0) {
+      toast.error('Please select at least one size')
+      return
+    }
+
+    if (hasFlavors && selectedFlavors.length === 0) {
+      toast.error('Please select at least one flavor')
+      return
+    }
+
+    if (hasVariants && hasFlavors) {
+      selectedVariants.forEach(variant => {
+        selectedFlavors.forEach(flavor => {
+          const productCopy = {
+            ...product,
+            _id: `${product._id}_${variant.size.value}_${flavor.name}`,
+            selectedVariant: variant,
+            selectedFlavor: flavor
+          }
+          setSelectedProducts(prev => [...prev, productCopy])
+          setProductVariants(prev => ({
+            ...prev,
+            [productCopy._id]: { selectedVariant: variant, selectedFlavor: flavor }
+          }))
+        })
+      })
+    } else if (hasVariants) {
+      selectedVariants.forEach(variant => {
+        const productCopy = {
+          ...product,
+          _id: `${product._id}_${variant.size.value}`,
+          selectedVariant: variant,
+          selectedFlavor: null
+        }
+        setSelectedProducts(prev => [...prev, productCopy])
+        setProductVariants(prev => ({
+          ...prev,
+          [productCopy._id]: { selectedVariant: variant, selectedFlavor: null }
+        }))
+      })
+    } else if (hasFlavors) {
+      selectedFlavors.forEach(flavor => {
+        const productCopy = {
+          ...product,
+          _id: `${product._id}_${flavor.name}`,
+          selectedVariant: null,
+          selectedFlavor: flavor
+        }
+        setSelectedProducts(prev => [...prev, productCopy])
+        setProductVariants(prev => ({
+          ...prev,
+          [productCopy._id]: { selectedVariant: null, selectedFlavor: flavor }
+        }))
+      })
+    } else {
+      setSelectedProducts(prev => [...prev, product])
+      setProductVariants(prev => ({
+        ...prev,
+        [product._id]: { selectedVariant: null, selectedFlavor: null }
+      }))
+    }
+
+    setShowProductDetailModal(false)
+    toast.success('Added to selection')
+  }
+
+  // const addProductToBox = (product) => {
+  //   // Check if product is already selected
+  //   if (selectedProducts.find(p => p._id === product._id)) {
+  //     toast.error('Product already added')
+  //     return
+  //   }
+    
+  //   // Add to selected products list
+  //   setSelectedProducts(prev => [...prev, product])
+    
+  //   // Initialize variant selection if product has variants
+  //   if (product.hasVariants && product.variants && product.variants.length > 0) {
+  //     setProductVariants(prev => ({
+  //       ...prev,
+  //       [product._id]: {
+  //         selectedVariant: product.variants[0],
+  //         selectedFlavor: product.flavors?.[0] || null
+  //       }
+  //     }))
+  //   } else if (product.flavors && product.flavors.length > 0) {
+  //     setProductVariants(prev => ({
+  //       ...prev,
+  //       [product._id]: {
+  //         selectedVariant: null,
+  //         selectedFlavor: product.flavors[0]
+  //       }
+  //     }))
+  //   }
+  // }
+
+  const removeSelectedProduct = (productId) => {
+    setSelectedProducts(prev => prev.filter(p => p._id !== productId))
+    setProductVariants(prev => {
+      const newVariants = { ...prev }
+      delete newVariants[productId]
+      return newVariants
+    })
+  }
+
+  const updateProductVariant = (productId, variant) => {
+    setProductVariants(prev => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        selectedVariant: variant,
+        selectedFlavor: null // Reset flavor when variant changes
+      }
+    }))
+  }
+
+  const updateProductFlavor = (productId, flavor) => {
+    setProductVariants(prev => ({
+      ...prev,
+      [productId]: {
+        ...prev[productId],
+        selectedFlavor: flavor
+      }
+    }))
+  }
+
+  const addSelectedProductsToBoxItems = () => {
+    const newItems = selectedProducts.map(product => {
+      const variants = productVariants[product._id]
+      const selectedVariant = variants?.selectedVariant
+      const selectedFlavor = variants?.selectedFlavor
+      
+      // Calculate price
+      let price = 0
+      if (selectedFlavor && selectedFlavor.price) {
+        price = Number(selectedFlavor.price)
+      } else if (selectedVariant && selectedVariant.price) {
+        price = Number(selectedVariant.price)
+      } else {
+        price = Number(product.price || 0)
+      }
+      
+      // Build item name with variant and flavor info
+      let itemName = product.name
+      if (selectedVariant) {
+        itemName += ` (${selectedVariant.size.value}${selectedVariant.size.unit === 'grams' ? 'G' : selectedVariant.size.unit === 'pieces' ? ' pcs' : selectedVariant.size.unit.toUpperCase()})`
+      }
+      if (selectedFlavor) {
+        itemName += ` - ${selectedFlavor.name}`
+      }
+      
+      // Build notes with price and details
+      let notes = `Price: $${price.toFixed(2)}`
+      if (selectedVariant) {
+        notes += `, Size: ${selectedVariant.size.value}${selectedVariant.size.unit}`
+      }
+      if (selectedFlavor) {
+        notes += `, Flavor: ${selectedFlavor.name}`
+      }
+      
+      return {
+        itemName: itemName,
+        quantity: 1,
+        notes: notes
+      }
+    })
+    
+    setEditData(prev => ({
+      ...prev,
+      currentBoxItems: [...prev.currentBoxItems, ...newItems]
+    }))
+    
+    // Clear selections and close modal
+    setSelectedProducts([])
+    setProductVariants({})
+    setShowProductModal(false)
+    toast.success(`${newItems.length} product(s) added to box`)
+  }
+
+  const addProductToBox = (product) => {
+    const newItem = {
+      itemName: product.name,
+      quantity: 1,
+      notes: `$${product.price}`
+    }
+    setEditData(prev => ({
+      ...prev,
+      currentBoxItems: [...prev.currentBoxItems, newItem]
+    }))
+    setShowProductModal(false)
+    toast.success('Product added to box')
   }
 
   const addBoxItem = () => {
@@ -301,6 +647,22 @@ export default function SubscriptionDetail() {
             >
               <CreditCard className="w-4 h-4 mr-1" />
               Payment
+            </button>
+
+            <button
+              onClick={handleShowBoxHistory}
+              className="flex items-center px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
+            >
+              <History className="w-4 h-4 mr-1" />
+              Box History
+            </button>
+
+            <button
+              onClick={() => setShowCreateBoxModal(true)}
+              className="flex items-center px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Create Box
             </button>
 
             {subscription.status === 'active' ? (
@@ -579,10 +941,11 @@ export default function SubscriptionDetail() {
                 </button>
               )}
               <button
-                onClick={addBoxItem}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                onClick={() => setShowProductModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm flex items-center"
               >
-                Add Item
+                <ShoppingCart className="w-4 h-4 mr-1" />
+                Select Products
               </button>
             </div>
           )}
@@ -724,6 +1087,286 @@ export default function SubscriptionDetail() {
           </div>
         </div>
       )}
+
+      {showBoxHistoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Box Pickup History</h3>
+              <button
+                onClick={() => setShowBoxHistoryModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            {boxHistory ? (
+              <>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Total Boxes</p>
+                    <p className="text-2xl font-bold text-blue-600">{boxHistory.stats.totalBoxes}</p>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Picked Up</p>
+                    <p className="text-2xl font-bold text-green-600">{boxHistory.stats.pickedUp}</p>
+                  </div>
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Pending</p>
+                    <p className="text-2xl font-bold text-yellow-600">{boxHistory.stats.pending}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {boxHistory.history.map((box) => (
+                    <div key={box._id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <span className="font-semibold">Box #{box.boxNumber}</span>
+                          {box.status === 'picked_up' ? (
+                            <span className="flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Picked Up
+                            </span>
+                          ) : (
+                            <span className="flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
+                              <Clock className="w-4 h-4 mr-1" />
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex space-x-2">
+                          {box.status === 'pending' && (
+                            <button
+                              onClick={() => handleMarkBoxPickup(box._id, 'picked_up')}
+                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                            >
+                              Mark Picked Up
+                            </button>
+                          )}
+                          {box.status === 'picked_up' && (
+                            <button
+                              onClick={() => handleMarkBoxPickup(box._id, 'pending')}
+                              className="px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 text-sm"
+                            >
+                              Mark Pending
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-2">
+                        <div>
+                          <span className="font-medium">Scheduled:</span> {new Date(box.scheduledDate).toLocaleDateString()}
+                        </div>
+                        {box.pickedUpDate && (
+                          <div>
+                            <span className="font-medium">Picked Up:</span> {new Date(box.pickedUpDate).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+
+                      {box.items && box.items.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-gray-700 mb-1">Items:</p>
+                          <div className="space-y-1">
+                            {box.items.map((item, idx) => (
+                              <div key={idx} className="text-sm text-gray-600 pl-4">
+                                • {item.itemName} x{item.quantity}
+                                {item.notes && <span className="text-gray-500"> - {item.notes}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {box.notes && (
+                        <div className="mt-2 text-sm text-gray-600">
+                          <span className="font-medium">Notes:</span> {box.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {boxHistory.history.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">No box pickup history yet</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="text-gray-600 mt-2">Loading history...</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showCreateBoxModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold mb-4">Create Box Pickup</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              This will create a new box pickup record for this member using the current box items.
+            </p>
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <p className="text-sm font-medium mb-2">Current Box Items:</p>
+              {subscription.currentBoxItems && subscription.currentBoxItems.length > 0 ? (
+                <ul className="text-sm text-gray-600 space-y-1">
+                  {subscription.currentBoxItems.map((item, idx) => (
+                    <li key={idx}>• {item.itemName} x{item.quantity}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500">No items configured</p>
+              )}
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleCreateBoxPickup}
+                className="flex-1 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700"
+              >
+                Create Box
+              </button>
+              <button
+                onClick={() => setShowCreateBoxModal(false)}
+                className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showProductModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center flex-shrink-0">
+              <div>
+                <h3 className="text-xl font-semibold">Select Products for Box</h3>
+                {selectedProducts.length > 0 && (
+                  <p className="text-sm text-gray-600 mt-1">{selectedProducts.length} product(s) selected</p>
+                )}
+              </div>
+              <button onClick={() => {
+                setShowProductModal(false)
+                setSelectedProducts([])
+                setProductVariants({})
+              }} className="text-gray-500 hover:text-gray-700">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <SelectedProductsList
+              selectedProducts={selectedProducts}
+              productVariants={productVariants}
+              onRemove={removeSelectedProduct}
+              onAddToBox={addSelectedProductsToBoxItems}
+            />
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              {loadingProducts ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading products...</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {allProducts.map(product => {
+                    const isSelected = selectedProducts.find(p => p._id === product._id)
+                    const displayPrice = product.price || product.variants?.[0]?.price || product.flavors?.[0]?.price || 'N/A'
+                    const displayImage = product.image || product.images?.[0] || ''
+                    
+                    // Check if product is out of stock
+                    let isOutOfStock = false
+                    if (product.hasVariants && product.variants?.length > 0) {
+                      // Check if all variants are out of stock
+                      isOutOfStock = product.variants.every(v => (v.stock || 0) <= 0)
+                    } else if (product.flavors?.length > 0) {
+                      // Check if all flavors are out of stock
+                      isOutOfStock = product.flavors.every(f => (f.stock || 0) <= 0)
+                    } else {
+                      // Normal product - check direct stock
+                      isOutOfStock = (product.stock || 0) <= 0
+                    }
+                    
+                    return (
+                      <div 
+                        key={product._id} 
+                        className={`border rounded-lg p-4 hover:shadow-lg transition ${isOutOfStock ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
+                        onClick={() => !isOutOfStock && handleProductClick(product)}
+                      >
+                        <div className="relative">
+                          {displayImage && (
+                            <img src={displayImage} alt={product.name} className="w-full h-40 object-cover rounded mb-3" />
+                          )}
+                          {isOutOfStock && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded mb-3">
+                              <span className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-lg">
+                                OUT OF STOCK
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <h4 className="font-semibold text-gray-900 mb-1">{product.name}</h4>
+                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                          {product.description?.main || product.description || ''}
+                        </p>
+                        
+                        {/* Show variant/flavor info */}
+                        {product.hasVariants && product.variants && product.variants.length > 0 && (
+                          <p className="text-xs text-gray-500 mb-1">
+                            {product.variants.length} size(s) available
+                          </p>
+                        )}
+                        {product.flavors && product.flavors.length > 0 && (
+                          <p className="text-xs text-gray-500 mb-1">
+                            {product.flavors.length} flavor(s) available
+                          </p>
+                        )}
+                        
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-lg font-bold text-green-600">
+                            ${typeof displayPrice === 'number' ? displayPrice.toFixed(2) : displayPrice}
+                          </span>
+                          {!isOutOfStock && (
+                            <button className={`px-3 py-1 rounded text-sm font-semibold ${isSelected ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                              {isSelected ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4 inline mr-1" />
+                                  Selected
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-4 h-4 inline mr-1" />
+                                  Select
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ProductDetailModal
+        product={currentProduct}
+        isOpen={showProductDetailModal}
+        onClose={() => {
+          setShowProductDetailModal(false)
+          setCurrentProduct(null)
+        }}
+        onAddToSelection={handleAddToSelection}
+      />
     </Layout>
   )
 }

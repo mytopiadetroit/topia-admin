@@ -44,3 +44,28 @@ body {
     margin-left: 0;
   }
 }
+
+/* Custom Scrollbar Styles for Sidebar */
+.sidebar-fixed nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-fixed nav::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.sidebar-fixed nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+}
+
+.sidebar-fixed nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Firefox scrollbar */
+.sidebar-fixed nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
+}

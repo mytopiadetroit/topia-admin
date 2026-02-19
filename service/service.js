@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-        // const ConstantsUrl = "http://localhost:5000/api/";
-         const ConstantsUrl = "https://api.mypsyguide.io/api/";
+        //  const ConstantsUrl = "http://localhost:5000/api/";
+        const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -519,6 +519,16 @@ const fetchAllProducts = async (router, params = {}) => {
     return await Api('get', 'products', null, router, params);
   } catch (error) {
     console.error('Error fetching products:', error);
+    throw error;
+  }
+};
+
+// Helper function to fetch all products without pagination
+const fetchAllProductsNoPagination = async (router) => {
+  try {
+    return await Api('get', 'products/all-no-pagination', null, router);
+  } catch (error) {
+    console.error('Error fetching all products:', error);
     throw error;
   }
 };
@@ -1263,6 +1273,69 @@ const fetchProductStats = async (router) => {
   }
 };
 
+const createBoxPickup = async (data, router) => {
+  try {
+    return await Api('post', 'box-pickups', data, router);
+  } catch (error) {
+    console.error('Error creating box pickup:', error);
+    throw error;
+  }
+};
+
+const fetchBoxPickups = async (router, params = {}) => {
+  try {
+    return await Api('get', 'box-pickups', null, router, params);
+  } catch (error) {
+    console.error('Error fetching box pickups:', error);
+    throw error;
+  }
+};
+
+const fetchUserBoxHistory = async (userId, router) => {
+  try {
+    return await Api('get', `box-pickups/user/${userId}`, null, router);
+  } catch (error) {
+    console.error('Error fetching user box history:', error);
+    throw error;
+  }
+};
+
+const markBoxPickupStatus = async (id, data, router) => {
+  try {
+    return await Api('put', `box-pickups/${id}/status`, data, router);
+  } catch (error) {
+    console.error('Error marking box pickup:', error);
+    throw error;
+  }
+};
+
+const updateBoxPickup = async (id, data, router) => {
+  try {
+    return await Api('put', `box-pickups/${id}`, data, router);
+  } catch (error) {
+    console.error('Error updating box pickup:', error);
+    throw error;
+  }
+};
+
+const fetchPendingChanges = async (router, params = {}) => {
+  try {
+    return await Api('get', 'pending-changes/admin/all', null, router, params);
+  } catch (error) {
+    console.error('Error fetching pending changes:', error);
+    throw error;
+  }
+};
+
+const reviewPendingChange = async (id, data, router) => {
+  try {
+    return await Api('put', `pending-changes/admin/${id}/review`, data, router);
+  } catch (error) {
+    console.error('Error reviewing change:', error);
+    throw error;
+  }
+};
+
 export {
   Api,
   timeSince,
@@ -1294,6 +1367,7 @@ export {
   fetchSubscribers,
   updateUserStatusAdmin,
   fetchAllProducts,
+  fetchAllProductsNoPagination,
   fetchAllReviewTags,
   createReviewTagApi,
   updateReviewTagApi,
@@ -1378,7 +1452,14 @@ export {
   updateSubscriptionSettings,
   fetchSubscriptionById,
   updateSubscriptionAdmin,
-  fetchProductStats
+  fetchProductStats,
+  createBoxPickup,
+  fetchBoxPickups,
+  fetchUserBoxHistory,
+  markBoxPickupStatus,
+  updateBoxPickup,
+  fetchPendingChanges,
+  reviewPendingChange
 };
 
 // User Notes Management helpers

@@ -114,6 +114,9 @@ export default function Sidebar({ className = "", isMobileOpen = false }) {
     } else if (currentPath.includes("/subscriptions")) {
       setActiveModule("subscriptions");
       setActiveCategory("");
+    } else if (currentPath.includes("/pending-changes")) {
+      setActiveModule("pending-changes");
+      setActiveCategory("");
     } else if (currentPath.includes("/gallery")) {
       setActiveModule("gallery");
       setActiveCategory("");
@@ -328,6 +331,15 @@ export default function Sidebar({ className = "", isMobileOpen = false }) {
               >
                 <Crown className={`h-5 w-5 ${activeModule === "subscriptions" ? "text-[#80A6F7]" : ""}`} />
                 <span className="ml-2">Topia Circle</span>
+              </button>
+            </Link>
+
+            <Link href="/pending-changes">
+              <button
+                className={getModuleClasses("pending-changes")}
+              >
+                <FileText className={`h-5 w-5 ${activeModule === "pending-changes" ? "text-[#80A6F7]" : ""}`} />
+                <span className="ml-2">Pending Changes</span>
               </button>
             </Link>
 
