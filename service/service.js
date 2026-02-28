@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-        //  const ConstantsUrl = "http://localhost:5000/api/";
-        const ConstantsUrl = "https://api.mypsyguide.io/api/";
+        // const ConstantsUrl = "http://localhost:5000/api/";
+         const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -1153,6 +1153,15 @@ const previewBirthdayUsers = async (router) => {
   }
 };
 
+const debugBirthdayData = async (router) => {
+  try {
+    return await Api('get', 'sms/debug-birthday-data', null, router);
+  } catch (error) {
+    console.error('Error debugging birthday data:', error);
+    throw error;
+  }
+};
+
 // Individual SMS helpers
 const searchUsersForSMS = async (search, router) => {
   try {
@@ -1440,6 +1449,7 @@ export {
   previewSMSRecipients,
   sendBirthdaySMSManually,
   previewBirthdayUsers,
+  debugBirthdayData,
   searchUsersForSMS,
   sendIndividualSMS,
   fetchSMSReplies,
@@ -1589,9 +1599,12 @@ export const adminUpgradeUserToTopia = async (userId, billingAddress, paymentNot
   }
 };
 
-export const updateSubscriptionBillingDate = async (subscriptionId, billingDayOfMonth, router) => {
+export const updateSubscriptionBillingDate = async (subscriptionId, billingDayOfMonth, router, nextBillingDate) => {
   try {
-    return await Api('put', `subscriptions/admin/${subscriptionId}/billing-date`, { billingDayOfMonth }, router);
+    const payload = nextBillingDate 
+      ? { nextBillingDate } 
+      : { billingDayOfMonth };
+    return await Api('put', `subscriptions/admin/${subscriptionId}/billing-date`, payload, router);
   } catch (error) {
     console.error('Error updating billing date:', error);
     throw error;
@@ -1612,6 +1625,15 @@ export const toggleSubscriptionStatus = async (subscriptionId, action, router) =
     return await Api('put', `subscriptions/admin/${subscriptionId}/status`, { action }, router);
   } catch (error) {
     console.error('Error toggling subscription status:', error);
+    throw error;
+  }
+};
+
+export const updatePaymentInfo = async (subscriptionId, paymentInfo, router) => {
+  try {
+    return await Api('put', `subscriptions/admin/${subscriptionId}/payment-info`, paymentInfo, router);
+  } catch (error) {
+    console.error('Error updating payment info:', error);
     throw error;
   }
 };

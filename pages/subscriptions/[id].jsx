@@ -15,6 +15,7 @@ import {
   fetchUserBoxHistory,
   markBoxPickupStatus,
   fetchAllProductsNoPagination,
+  updatePaymentInfo,
   toast 
 } from '../../service/service'
 
@@ -35,6 +36,15 @@ export default function SubscriptionDetail() {
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [newPaymentMethod, setNewPaymentMethod] = useState('')
+  const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false)
+  const [paymentInfo, setPaymentInfo] = useState({
+    cardHolderName: '',
+    cardLastFour: '',
+    cardBrand: 'Visa',
+    expiryMonth: '',
+    expiryYear: '',
+    billingZip: ''
+  })
   const [boxHistory, setBoxHistory] = useState(null)
   const [showBoxHistoryModal, setShowBoxHistoryModal] = useState(false)
   const [showCreateBoxModal, setShowCreateBoxModal] = useState(false)
@@ -116,15 +126,14 @@ export default function SubscriptionDetail() {
   }
 
   const handleUpdateBillingDate = async () => {
-    if (!newBillingDay || newBillingDay < 1 || newBillingDay > 28) {
-      toast.error('Please enter a day between 1 and 28')
+    if (!newBillingDay) {
+      toast.error('Please select a billing date')
       return
     }
 
     try {
-      const data = await updateSubscriptionBillingDate(id, parseInt(newBillingDay), router)
+      const data = await updateSubscriptionBillingDate(id, null, router, newBillingDay)
       if (data.success) {
-        // Reload the subscription to get the updated data with populated fields
         await loadSubscription()
         setShowBillingDateModal(false)
         setNewBillingDay('')
@@ -178,7 +187,6 @@ export default function SubscriptionDetail() {
     try {
       const data = await toggleSubscriptionStatus(id, action, router)
       if (data.success) {
-        // Reload the subscription to get the updated data with populated fields
         await loadSubscription()
         toast.success(`Subscription ${action === 'pause' ? 'paused' : 'activated'} successfully`)
       } else {
@@ -187,6 +195,35 @@ export default function SubscriptionDetail() {
     } catch (error) {
       console.error('Error toggling status:', error)
       toast.error('Failed to update status')
+    }
+  }
+
+  const handleUpdatePaymentInfo = async () => {
+    if (!paymentInfo.cardHolderName || !paymentInfo.cardLastFour) {
+      toast.error('Card holder name and last 4 digits are required')
+      return
+    }
+
+    try {
+      const data = await updatePaymentInfo(id, paymentInfo, router)
+      if (data.success) {
+        await loadSubscription()
+        setShowPaymentInfoModal(false)
+        setPaymentInfo({
+          cardHolderName: '',
+          cardLastFour: '',
+          cardBrand: 'Visa',
+          expiryMonth: '',
+          expiryYear: '',
+          billingZip: ''
+        })
+        toast.success('Payment information updated successfully')
+      } else {
+        toast.error(data.message || 'Failed to update payment information')
+      }
+    } catch (error) {
+      console.error('Error updating payment info:', error)
+      toast.error('Failed to update payment information')
     }
   }
 
@@ -642,14 +679,6 @@ export default function SubscriptionDetail() {
             </button>
 
             <button
-              onClick={() => setShowPaymentModal(true)}
-              className="flex items-center px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
-            >
-              <CreditCard className="w-4 h-4 mr-1" />
-              Payment
-            </button>
-
-            <button
               onClick={handleShowBoxHistory}
               className="flex items-center px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm"
             >
@@ -855,6 +884,51 @@ export default function SubscriptionDetail() {
               )}
             </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <CreditCard className="w-5 h-5 text-purple-600 mr-2" />
+                <h2 className="text-lg font-semibold">Payment Information</h2>
+              </div>
+              <button
+                onClick={() => {
+                  if (subscription.paymentInfo) {
+                    setPaymentInfo(subscription.paymentInfo)
+                  }
+                  setShowPaymentInfoModal(true)
+                }}
+                className="text-purple-600 hover:text-purple-800"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {subscription.paymentInfo ? (
+              <div className="space-y-3">
+                <div>
+                  <span className="text-sm text-gray-500">Card Holder:</span>
+                  <p className="font-medium">{subscription.paymentInfo.cardHolderName}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Card:</span>
+                  <p className="font-medium">{subscription.paymentInfo.cardBrand} •••• {subscription.paymentInfo.cardLastFour}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-gray-500">Expires:</span>
+                  <p className="font-medium">{subscription.paymentInfo.expiryMonth}/{subscription.paymentInfo.expiryYear}</p>
+                </div>
+                {subscription.paymentInfo.billingZip && (
+                  <div>
+                    <span className="text-sm text-gray-500">Billing ZIP:</span>
+                    <p className="font-medium">{subscription.paymentInfo.billingZip}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500">No payment information added</p>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -1019,19 +1093,26 @@ export default function SubscriptionDetail() {
       {showBillingDateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold mb-4">Change Billing Date</h3>
+            <h3 className="text-xl font-semibold mb-4">Change Next Billing Date</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Set the day of month (1-28) when this member will be charged
+              Select the next billing date for this subscription
             </p>
             <input
-              type="number"
-              min="1"
-              max="28"
+              type="date"
               value={newBillingDay}
               onChange={(e) => setNewBillingDay(e.target.value)}
-              placeholder="Enter day (1-28)"
-              className="w-full px-4 py-3 border rounded-lg mb-4"
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-500"
             />
+            {newBillingDay && (
+              <p className="text-sm text-center text-purple-600 mb-4">
+                Next billing: {new Date(newBillingDay).toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </p>
+            )}
             <div className="flex space-x-3">
               <button
                 onClick={handleUpdateBillingDate}
@@ -1043,41 +1124,6 @@ export default function SubscriptionDetail() {
                 onClick={() => {
                   setShowBillingDateModal(false);
                   setNewBillingDay('');
-                }}
-                className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold mb-4">Update Payment Method</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Enter new payment method ID from payment gateway
-            </p>
-            <input
-              type="text"
-              value={newPaymentMethod}
-              onChange={(e) => setNewPaymentMethod(e.target.value)}
-              placeholder="Payment Method ID"
-              className="w-full px-4 py-3 border rounded-lg mb-4"
-            />
-            <div className="flex space-x-3">
-              <button
-                onClick={handleUpdatePaymentMethod}
-                className="flex-1 bg-[#80A6F7] text-white py-2 rounded-lg hover:bg-indigo-300"
-              >
-                Update
-              </button>
-              <button
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  setNewPaymentMethod('');
                 }}
                 className="flex-1 bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300"
               >
@@ -1367,6 +1413,124 @@ export default function SubscriptionDetail() {
         }}
         onAddToSelection={handleAddToSelection}
       />
+
+      {showPaymentInfoModal && (
+        <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Update Payment Information</h3>
+              <button
+                onClick={() => setShowPaymentInfoModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Card Holder Name *
+                </label>
+                <input
+                  type="text"
+                  value={paymentInfo.cardHolderName}
+                  onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardHolderName: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  placeholder="John Doe"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Card Brand
+                </label>
+                <select
+                  value={paymentInfo.cardBrand}
+                  onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardBrand: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="Visa">Visa</option>
+                  <option value="Mastercard">Mastercard</option>
+                  <option value="American Express">American Express</option>
+                  <option value="Discover">Discover</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last 4 Digits *
+                </label>
+                <input
+                  type="text"
+                  maxLength="4"
+                  value={paymentInfo.cardLastFour}
+                  onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardLastFour: e.target.value.replace(/\D/g, '') }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  placeholder="1234"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expiry Month
+                  </label>
+                  <input
+                    type="text"
+                    maxLength="2"
+                    value={paymentInfo.expiryMonth}
+                    onChange={(e) => setPaymentInfo(prev => ({ ...prev, expiryMonth: e.target.value.replace(/\D/g, '') }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="MM"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Expiry Year
+                  </label>
+                  <input
+                    type="text"
+                    maxLength="4"
+                    value={paymentInfo.expiryYear}
+                    onChange={(e) => setPaymentInfo(prev => ({ ...prev, expiryYear: e.target.value.replace(/\D/g, '') }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder="YYYY"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Billing ZIP Code
+                </label>
+                <input
+                  type="text"
+                  value={paymentInfo.billingZip}
+                  onChange={(e) => setPaymentInfo(prev => ({ ...prev, billingZip: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  placeholder="12345"
+                />
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handleUpdatePaymentInfo}
+                  className="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setShowPaymentInfoModal(false)}
+                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

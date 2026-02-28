@@ -21,6 +21,7 @@ import {
   previewSMSRecipients,
   sendBirthdaySMSManually,
   previewBirthdayUsers,
+  debugBirthdayData,
   searchUsersForSMS,
   sendIndividualSMS,
   fetchSMSReplies,
@@ -298,6 +299,67 @@ export default function SMSNotifications() {
         icon: 'error',
         title: 'Error',
         text: error.message || 'Failed to send birthday SMS',
+        confirmButtonColor: '#ef4444',
+      });
+    } finally {
+      setBirthdayLoading(false);
+    }
+  };
+
+  const debugBirthdayDataHandler = async () => {
+    setBirthdayLoading(true);
+    try {
+      const response = await debugBirthdayData(router);
+      if (response.success) {
+        const sampleData = response.sampleUsers.slice(0, 5).map(u => 
+          `<div class="text-left text-xs mb-2 p-2 bg-gray-50 rounded">
+            <strong>${u.name}</strong><br/>
+            Phone: ${u.phone}<br/>
+            Birthday: Month=${u.birthday?.month} (${u.monthType}), Day=${u.birthday?.day} (${u.dayType})
+          </div>`
+        ).join('');
+
+        const matchData = response.todayMatches.map(u => 
+          `<div class="text-left text-xs mb-2 p-2 bg-green-50 rounded">
+            ✅ <strong>${u.name}</strong> - ${u.phone}<br/>
+            Birthday: ${u.birthday?.month}/${u.birthday?.day}
+          </div>`
+        ).join('');
+
+        await Swal.fire({
+          icon: 'info',
+          title: '🔍 Birthday Data Debug',
+          html: `
+            <div class="text-left">
+              <div class="mb-4 p-3 bg-blue-50 rounded">
+                <p class="font-semibold text-blue-800">Detroit Time: ${response.detroitTime}</p>
+                <p class="text-blue-700">Current Month: ${response.currentMonth}, Day: ${response.currentDay}</p>
+              </div>
+              
+              <div class="mb-4">
+                <p class="font-semibold mb-2">Sample Users (First 5):</p>
+                ${sampleData}
+              </div>
+              
+              <div class="mb-4">
+                <p class="font-semibold mb-2 text-green-700">Today's Birthday Matches (${response.matchCount}):</p>
+                ${matchData || '<p class="text-gray-500 text-sm">No matches found</p>'}
+              </div>
+            </div>
+          `,
+          confirmButtonColor: '#9333ea',
+          width: '700px',
+          customClass: {
+            htmlContainer: 'text-left'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error debugging birthday data:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to debug birthday data',
         confirmButtonColor: '#ef4444',
       });
     } finally {
@@ -587,6 +649,13 @@ export default function SMSNotifications() {
                 <Users className="w-4 h-4" />
                 Send to Individual
               </button>
+              {/* <button
+                onClick={debugBirthdayDataHandler}
+                disabled={birthdayLoading}
+                className="bg-orange-100 text-orange-700 px-4 py-2.5 rounded-lg font-medium hover:bg-orange-200 transition-all flex items-center gap-2"
+              >
+                🔍 Debug Birthday Data
+              </button> */}
               <button
                 onClick={previewBirthdayUsersHandler}
                 disabled={birthdayLoading}
