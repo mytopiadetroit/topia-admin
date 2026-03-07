@@ -76,7 +76,7 @@ export default function ReviewTagsPage() {
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('add'); // add | edit
-  const [current, setCurrent] = useState({ _id: '', label: '', isActive: true });
+  const [current, setCurrent] = useState({ _id: '', label: '', tooltip: '', isActive: true });
   const [saving, setSaving] = useState(false);
 
   // Filtered tags using useMemo
@@ -124,7 +124,7 @@ export default function ReviewTagsPage() {
 
   const openAdd = () => {
     setModalMode('add');
-    setCurrent({ _id: '', label: '', isActive: true });
+    setCurrent({ _id: '', label: '', tooltip: '', isActive: true });
     setShowModal(true);
   };
 
@@ -164,7 +164,11 @@ export default function ReviewTagsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { label: current.label, isActive: !!current.isActive };
+      const payload = { 
+        label: current.label, 
+        tooltip: current.tooltip || '', 
+        isActive: !!current.isActive 
+      };
       const res = modalMode === 'add' 
         ? await createReviewTagApi(payload, router)
         : await updateReviewTagApi(current._id, payload, router);
@@ -205,6 +209,7 @@ export default function ReviewTagsPage() {
               <thead>
                 <tr className="text-left text-xs text-gray-500">
                   <th className="px-4 py-3">LABEL</th>
+                  <th className="px-4 py-3">TOOLTIP</th>
                   <th className="px-4 py-3">ACTIVE</th>
                   <th className="px-4 py-3 text-right">ACTIONS</th>
                 </tr>
@@ -214,6 +219,9 @@ export default function ReviewTagsPage() {
                   <tr key={t._id} className="border-t">
                     <td className="px-4 py-3 text-sm text-gray-700">
                       <div className="font-medium">{t.label}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {t.tooltip || '-'}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs rounded-full ${t.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
@@ -228,7 +236,7 @@ export default function ReviewTagsPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan="3" className="text-center py-10 text-gray-500">No tags found</td>
+                    <td colSpan="4" className="text-center py-10 text-gray-500">No tags found</td>
                   </tr>
                 )}
               </tbody>
@@ -271,6 +279,16 @@ export default function ReviewTagsPage() {
                     <option value="0">No</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm text-gray-600 mb-1">Tooltip Text</label>
+                <input 
+                  value={current.tooltip || ''} 
+                  onChange={(e)=>setCurrent({...current, tooltip: e.target.value})} 
+                  className="w-full px-3 py-2 border rounded-md" 
+                  placeholder="Text to show on hover (optional)" 
+                />
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
