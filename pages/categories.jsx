@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Plus, LogOut } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { Edit, Trash2, Plus, GripVertical, X } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useRouter } from 'next/router';
 import { Api } from '@/service/service';
 import Layout from '@/components/Layout';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // API Helper Functions
 const fetchAllCategories = async (router) => {
@@ -43,7 +45,64 @@ const deleteCategory = async (id, router) => {
   }
 };
 
-const Categories = ({ user, loader }) => {
+const updateCategoryOrder = async (id, order, router) => {
+  try {
+    return await Api('put', `categories/categories/${id}/order`, { order }, router);
+  } catch (error) {
+    console.error('Error updating category order:', error);
+    throw error;
+  }
+};
+
+function SortableItem({ id, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 'auto',
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={isDragging ? 'bg-gray-100' : ''}
+    >
+      {React.Children.map(children, (child, index) => {
+        if (index === 0) {
+          return React.cloneElement(child, {
+            children: (
+              <div className="flex items-center">
+                <button
+                  {...attributes}
+                  {...listeners}
+                  className="p-1 mr-2 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+                >
+                  <GripVertical className="h-4 w-4" />
+                </button>
+                {child.props.children}
+              </div>
+            )
+          });
+        }
+        return child;
+      })}
+    </tr>
+  );
+}
+
+
+
+const Categories = () => {
   const router = useRouter();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,64 +111,149 @@ const Categories = ({ user, loader }) => {
   const [selectedImage, setSelectedImage] = useState('');
   const [imagePreview, setImagePreview] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 10
-  });
   
-  // Modal state
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState('add'); // 'add' or 'edit'
+  const [modalMode, setModalMode] = useState('add');
   const [currentCategory, setCurrentCategory] = useState({ 
-  id: '', 
-  category: '', 
-  metaTitle: '', 
-  metaDescription: '' 
-});
+    id: '', 
+    category: '', 
+    metaTitle: '', 
+    metaDescription: '' 
+  });
 
-  const sidebarWidth = "240px";
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminDetail');
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('userDetail'); // Remove old detail too
-    localStorage.removeItem('token'); // Remove old token too
-    router.push('/');
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    console.log('Drag end - Active:', active.id, 'Over:', over?.id);
+
+    if (!over || active.id === over.id) {
+      console.log('No position change or invalid drop target');
+      return;
+    }
+
+    const currentCategories = [...categories];
+    const oldIndex = currentCategories.findIndex(item => item._id === active.id);
+    const newIndex = currentCategories.findIndex(item => item._id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      console.error('Could not find items in the array');
+      return;
+    }
+
+    console.log('Moving item from index', oldIndex, 'to', newIndex);
+
+    const newItems = arrayMove(currentCategories, oldIndex, newIndex).map((item, index) => ({
+      ...item,
+      order: index
+    }));
+
+    setCategories(newItems);
+
+    try {
+      await updateCategoryOrderInDatabase(newItems);
+      setTimeout(() => {
+        console.log('Category order updated successfully');
+      }, 100);
+    } catch (error) {
+      console.error('Error updating category order:', error);
+      setTimeout(() => {
+        setCategories(currentCategories);
+        console.error('Failed to update category order');
+      }, 100);
+    }
   };
 
-  // Fetch categories with pagination using Api function
-  const fetchCategories = async (page = 1, limit = 10, search = '') => {
+  const updateCategoryOrderInDatabase = async (reorderedCategories) => {
+    try {
+      console.log('=== UPDATING CATEGORY ORDER ===');
+      console.log('Categories to update:', reorderedCategories.map((c, index) => ({
+        id: c._id,
+        name: c.category,
+        newOrder: index,
+        oldOrder: c.order
+      })));
+
+      const updates = reorderedCategories
+        .map((category, index) => ({
+          ...category,
+          newOrder: index
+        }))
+        .filter((category, index) => {
+          const originalCategory = categories.find(c => c._id === category._id);
+          const shouldUpdate = !originalCategory || originalCategory.order !== index;
+          console.log(`Category ${category._id} (${category.category}):`, {
+            oldOrder: originalCategory?.order,
+            newOrder: index,
+            shouldUpdate
+          });
+          return shouldUpdate;
+        })
+        .map((category) => {
+          console.log(`Will update category ${category._id} (${category.category}) to order ${category.newOrder}`);
+
+          const requestBody = { order: category.newOrder };
+          console.log('Request body:', JSON.stringify(requestBody));
+
+          return updateCategoryOrder(category._id, category.newOrder, router)
+            .then(res => {
+              console.log(`Order update success for ${category._id}:`, res);
+              return res;
+            })
+            .catch(err => {
+              console.error(`Error updating order for ${category._id}:`, {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status,
+              });
+              throw err;
+            });
+        });
+
+      if (updates.length === 0) {
+        console.log('No order changes detected, skipping update');
+        return [];
+      }
+
+      console.log(`Sending ${updates.length} order updates to the server...`);
+      const results = await Promise.all(updates);
+      console.log('All order updates completed successfully');
+
+      return results;
+    } catch (error) {
+      console.error('Error in updateCategoryOrderInDatabase:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error;
+    }
+  };
+
+  const fetchCategories = async () => {
     try {
       setLoading(true);
-      // Using the Api function for API call
       const result = await fetchAllCategories(router);
       
-      // If the API doesn't support pagination yet, handle it client-side
-      const allCategories = result.data || [];
+      let allCategories = result.data || [];
       
-      // Simple client-side pagination and search if needed
-      let filteredCategories = allCategories;
-      if (search) {
-        filteredCategories = allCategories.filter(cat => 
-          cat.category.toLowerCase().includes(search.toLowerCase())
+      if (searchTerm) {
+        allCategories = allCategories.filter(cat => 
+          cat.category.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
       
-      // Calculate pagination
-      const totalItems = filteredCategories.length;
-      const totalPages = Math.ceil(totalItems / limit);
-      const startIndex = (page - 1) * limit;
-      const paginatedCategories = filteredCategories.slice(startIndex, startIndex + limit);
-      
-      setCategories(paginatedCategories);
-      setPagination({
-        currentPage: page,
-        totalPages: totalPages,
-        totalItems: totalItems,
-        itemsPerPage: limit
-      });
+      setCategories(allCategories);
       setError(null);
     } catch (err) {
       setError('Failed to fetch categories. Please try again.');
@@ -119,27 +263,9 @@ const Categories = ({ user, loader }) => {
     }
   };
 
-  // Search functionality
   const handleSearch = (searchValue) => {
     setSearchTerm(searchValue);
-    fetchCategories(1, pagination.itemsPerPage, searchValue);
-  };
-
-  // Pagination functions
-  const paginate = (pageNumber) => {
-    fetchCategories(pageNumber, pagination.itemsPerPage, searchTerm);
-  };
-
-  const goToPrevPage = () => {
-    if (pagination.currentPage > 1) {
-      paginate(pagination.currentPage - 1);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (pagination.currentPage < pagination.totalPages) {
-      paginate(pagination.currentPage + 1);
-    }
+    fetchCategories();
   };
 
   // Modal functions
@@ -207,7 +333,7 @@ const openAddModal = () => {
       }
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
+      console.error('Failed to upload image');
     } finally {
       setUploading(false);
     }
@@ -241,7 +367,6 @@ const openAddModal = () => {
           Swal.fire({ icon: 'error', title: 'Error', text: result.message || 'Failed to create category' });
         }
       } else {
-        // Update existing category using Api function
         const result = await updateCategory(currentCategory.id, formData, router);
         if (result.success) {
           await Swal.fire({
@@ -256,8 +381,7 @@ const openAddModal = () => {
         }
       }
       
-      // Refresh categories list
-      fetchCategories(pagination.currentPage, pagination.itemsPerPage, searchTerm);
+      fetchCategories();
       closeModal();
     } catch (err) {
       Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'An error occurred' });
@@ -363,8 +487,7 @@ const openAddModal = () => {
         throw new Error(result.message || 'Failed to delete category');
       }
       
-      // Refresh the categories list
-      await fetchCategories(pagination.currentPage, pagination.itemsPerPage, searchTerm);
+      await fetchCategories();
       
     } catch (err) {
       console.error('Error deleting category:', err);
@@ -436,135 +559,71 @@ const openAddModal = () => {
                 {error}
               </div>
             ) : (
-              <table className="min-w-full">
-                <thead>
-                  <tr className="text-left text-xs text-gray-500">
-                    <th className="px-4 py-3 font-medium">IMAGE</th>
-                    <th className="px-4 py-3 font-medium">CATEGORY NAME</th>
-                    <th className="px-4 py-3 font-medium text-right">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categories.length > 0 ? (
-                    categories.map((category) => (
-                      <tr key={category._id}>
-                        <td className="px-4 py-3">
-                          {category.image && (
-                            <div className="w-12 h-12 rounded-md overflow-hidden border">
-                              <img 
-                                src={category.image} 
-                                alt={category.category} 
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{category.category}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => openEditModal(category)}
-                            className="text-blue-600 hover:text-blue-800 mr-3"
-                            title="Edit"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(category._id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Delete"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={categories.map(c => c._id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="text-left text-xs text-gray-500">
+                        <th className="px-4 py-3 font-medium">CATEGORY</th>
+                        <th className="px-4 py-3 font-medium text-right">ACTIONS</th>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="2" className="text-center py-10 text-gray-500">
-                        No categories found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {categories.length > 0 ? (
+                        categories.map((category) => (
+                          <SortableItem key={category._id} id={category._id}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center">
+                                {category.image && (
+                                  <div className="w-12 h-12 rounded-md overflow-hidden border mr-3">
+                                    <img 
+                                      src={category.image} 
+                                      alt={category.category} 
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                )}
+                                <span className="text-sm text-gray-700">{category.category}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <button
+                                onClick={() => openEditModal(category)}
+                                className="text-blue-600 hover:text-blue-800 mr-3"
+                                title="Edit"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(category._id)}
+                                className="text-red-600 hover:text-red-800"
+                                title="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </SortableItem>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="2" className="text-center py-10 text-gray-500">
+                            No categories found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </SortableContext>
+              </DndContext>
             )}
           </div>
-
-          {/* Pagination */}
-          {!loading && !error && categories.length > 0 && (
-            <div className="mt-6 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-{Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems}
-              </div>
-              
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={goToPrevPage}
-                  disabled={pagination.currentPage === 1}
-                  className={`p-1 rounded-md border ${pagination.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-
-                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                  // Determine which page numbers to show
-                  let pageNum;
-                  const totalPages = pagination.totalPages;
-
-                  if (totalPages <= 5) {
-                    // If we have 5 or fewer pages, show all pages
-                    pageNum = i + 1;
-                  } else {
-                    // For more than 5 pages, create a window around current page
-                    if (pagination.currentPage <= 3) {
-                      // Near the start
-                      pageNum = i + 1;
-                      if (i === 4) pageNum = totalPages;
-                    } else if (pagination.currentPage >= totalPages - 2) {
-                      // Near the end
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      // Somewhere in the middle
-                      pageNum = pagination.currentPage - 2 + i;
-                    }
-                  }
-
-                  // Add ellipsis for page number gaps
-                  if ((totalPages > 5 && i === 3 && pagination.currentPage < totalPages - 2) ||
-                    (totalPages > 5 && i === 1 && pagination.currentPage > 3)) {
-                    return (
-                      <span key={`ellipsis-${i}`} className="px-3 py-1 text-gray-500">...</span>
-                    );
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => paginate(pageNum)}
-                      className={`w-8 h-8 rounded-md border flex items-center justify-center text-sm
-                        ${pagination.currentPage === pageNum
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={goToNextPage}
-                  disabled={pagination.currentPage === pagination.totalPages}
-                  className={`p-1 rounded-md border ${pagination.currentPage === pagination.totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Add/Edit Category Modal */}
