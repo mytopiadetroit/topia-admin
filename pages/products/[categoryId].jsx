@@ -251,6 +251,12 @@ export default function ProductsByCategory() {
     hasVariants: false,
     variants: [],
     flavors: [],
+    totalWeight: '',
+    totalPieces: '',
+    perPiece: '',
+    showTotalWeight: false,
+    showTotalPieces: false,
+    showPerPiece: false,
     allergenInfo: {
       hasAllergens: false,
       allergenImage: '',
@@ -279,6 +285,12 @@ export default function ProductsByCategory() {
     hasVariants: false,
     variants: [],
     flavors: [],
+    totalWeight: '',
+    totalPieces: '',
+    perPiece: '',
+    showTotalWeight: false,
+    showTotalPieces: false,
+    showPerPiece: false,
     allergenInfo: {
       hasAllergens: false,
       allergenImage: '',
@@ -419,6 +431,12 @@ export default function ProductsByCategory() {
       hasVariants: product.hasVariants || false,
       variants: product.variants || [],
       flavors: product.flavors || [],
+      totalWeight: product.totalWeight || '',
+      totalPieces: product.totalPieces || '',
+      perPiece: product.perPiece || '',
+      showTotalWeight: product.showTotalWeight || false,
+      showTotalPieces: product.showTotalPieces || false,
+      showPerPiece: product.showPerPiece || false,
       // Add allergenInfo with proper defaults
       allergenInfo: {
         hasAllergens: product.allergenInfo?.hasAllergens || false,
@@ -699,6 +717,12 @@ export default function ProductsByCategory() {
       fd.append('variants', JSON.stringify(editForm.variants || []));
       fd.append('flavors', JSON.stringify(editForm.flavors || []));
       fd.append('short_description', editForm.short_description || '');
+      fd.append('totalWeight', editForm.totalWeight || '');
+      fd.append('totalPieces', editForm.totalPieces || '');
+      fd.append('perPiece', editForm.perPiece || '');
+      fd.append('showTotalWeight', String(editForm.showTotalWeight));
+      fd.append('showTotalPieces', String(editForm.showTotalPieces));
+      fd.append('showPerPiece', String(editForm.showPerPiece));
       
       // Add allergenInfo to edit form data if it exists
       if (editForm.allergenInfo) {
@@ -786,6 +810,12 @@ export default function ProductsByCategory() {
       variants: [],
       flavors: [],
       short_description: '',
+      totalWeight: '',
+      totalPieces: '',
+      perPiece: '',
+      showTotalWeight: false,
+      showTotalPieces: false,
+      showPerPiece: false,
     });
     setShowAddModal(true);
   };
@@ -1058,6 +1088,12 @@ export default function ProductsByCategory() {
       fd.append('variants', JSON.stringify(form.variants || []));
       fd.append('flavors', JSON.stringify(form.flavors || []));
       fd.append('short_description', form.short_description || '');
+      fd.append('totalWeight', form.totalWeight || '');
+      fd.append('totalPieces', form.totalPieces || '');
+      fd.append('perPiece', form.perPiece || '');
+      fd.append('showTotalWeight', String(form.showTotalWeight));
+      fd.append('showTotalPieces', String(form.showTotalPieces));
+      fd.append('showPerPiece', String(form.showPerPiece));
       
       // Add allergenInfo to form data if it exists
       console.log('Form allergenInfo before submit:', form.allergenInfo);
@@ -1105,7 +1141,13 @@ export default function ProductsByCategory() {
           hasVariants: false,
           variants: [],
           flavors: [],
-          short_description: ''
+          short_description: '',
+          totalWeight: '',
+          totalPieces: '',
+          perPiece: '',
+          showTotalWeight: false,
+          showTotalPieces: false,
+          showPerPiece: false,
         });
         setErrors({});
       } else {
@@ -1449,6 +1491,30 @@ export default function ProductsByCategory() {
                           <p className="text-sm text-gray-900 mt-1 capitalize">{selectedProduct.primaryUse}</p>
                         </div>
 
+                        {/* Show Total Weight if enabled */}
+                        {selectedProduct.showTotalWeight && selectedProduct.totalWeight && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700">Total Weight</h4>
+                            <p className="text-sm text-gray-900 mt-1 font-semibold">{selectedProduct.totalWeight}</p>
+                          </div>
+                        )}
+
+                        {/* Show Total Pieces if enabled */}
+                        {selectedProduct.showTotalPieces && selectedProduct.totalPieces && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700">Total Pieces</h4>
+                            <p className="text-sm text-gray-900 mt-1 font-semibold">{selectedProduct.totalPieces}</p>
+                          </div>
+                        )}
+
+                        {/* Show Per Piece if enabled */}
+                        {selectedProduct.showPerPiece && selectedProduct.perPiece && (
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700">Per Piece</h4>
+                            <p className="text-sm text-gray-900 mt-1 font-semibold">{selectedProduct.perPiece}</p>
+                          </div>
+                        )}
+
                         {/* Show variants if available */}
                         {selectedProduct.hasVariants && selectedProduct.variants && selectedProduct.variants.length > 0 && (
                           <div>
@@ -1550,6 +1616,97 @@ export default function ProductsByCategory() {
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Short Description</label>
                   <input name="short_description" value={form.short_description} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+                </div>
+
+                {/* Total Weight Field with Toggle */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900">Show Total Weight</label>
+                      <p className="text-xs text-gray-600">Enable to display total weight on product card</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.showTotalWeight}
+                      onChange={(e) => setForm(prev => ({ ...prev, showTotalWeight: e.target.checked }))}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {form.showTotalWeight && (
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Total Weight (e.g., 3.5g, 100mg)</label>
+                      <input
+                        type="text"
+                        name="totalWeight"
+                        value={form.totalWeight}
+                        onChange={handleChange}
+                        placeholder="e.g., 3.5g, 100mg, 1oz"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Total Pieces Field with Toggle */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900">Show Total Pieces</label>
+                      <p className="text-xs text-gray-600">Enable to display total pieces on product card</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.showTotalPieces}
+                      onChange={(e) => setForm(prev => ({ ...prev, showTotalPieces: e.target.checked }))}
+                      className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  {form.showTotalPieces && (
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Total Pieces (Number Only)</label>
+                      <input
+                        type="number"
+                        name="totalPieces"
+                        value={form.totalPieces}
+                        onChange={handleChange}
+                        placeholder="e.g., 10, 20, 50"
+                        min="0"
+                        step="any"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Per Piece Field with Toggle */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900">Show Per Piece</label>
+                      <p className="text-xs text-gray-600">Enable to display per piece value on product card</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={form.showPerPiece}
+                      onChange={(e) => setForm(prev => ({ ...prev, showPerPiece: e.target.checked }))}
+                      className="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  {form.showPerPiece && (
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Per Piece Value (Number Only)</label>
+                      <input
+                        type="number"
+                        name="perPiece"
+                        value={form.perPiece}
+                        onChange={handleChange}
+                        placeholder="e.g., 2, 5, 10, 0.5"
+                        min="0"
+                        step="any"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-700"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Use Variants Toggle */}
@@ -2081,6 +2238,97 @@ export default function ProductsByCategory() {
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Short Description</label>
                   <input name="short_description" value={editForm.short_description} onChange={handleEditChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700" />
+                </div>
+
+                {/* Total Weight Field with Toggle */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900">Show Total Weight</label>
+                      <p className="text-xs text-gray-600">Enable to display total weight on product card</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editForm.showTotalWeight}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, showTotalWeight: e.target.checked }))}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {editForm.showTotalWeight && (
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Total Weight (e.g., 3.5g, 100mg)</label>
+                      <input
+                        type="text"
+                        name="totalWeight"
+                        value={editForm.totalWeight}
+                        onChange={handleEditChange}
+                        placeholder="e.g., 3.5g, 100mg, 1oz"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Total Pieces Field with Toggle */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900">Show Total Pieces</label>
+                      <p className="text-xs text-gray-600">Enable to display total pieces on product card</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editForm.showTotalPieces}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, showTotalPieces: e.target.checked }))}
+                      className="w-5 h-5 text-purple-600 rounded focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  {editForm.showTotalPieces && (
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Total Pieces (Number Only)</label>
+                      <input
+                        type="number"
+                        name="totalPieces"
+                        value={editForm.totalPieces}
+                        onChange={handleEditChange}
+                        placeholder="e.g., 10, 20, 50"
+                        min="0"
+                        step="any"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Per Piece Field with Toggle */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-900">Show Per Piece</label>
+                      <p className="text-xs text-gray-600">Enable to display per piece value on product card</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={editForm.showPerPiece}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, showPerPiece: e.target.checked }))}
+                      className="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  {editForm.showPerPiece && (
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">Per Piece Value (Number Only)</label>
+                      <input
+                        type="number"
+                        name="perPiece"
+                        value={editForm.perPiece}
+                        onChange={handleEditChange}
+                        placeholder="e.g., 2, 5, 10, 0.5"
+                        min="0"
+                        step="any"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-700"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Use Variants Toggle */}
