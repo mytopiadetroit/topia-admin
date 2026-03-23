@@ -92,6 +92,16 @@ export default function ProductsByCategory() {
     itemsPerPage: 10
   });
 
+  // Strains state management
+  const [strains, setStrains] = useState([]);
+  const [newStrain, setNewStrain] = useState({
+    name: '',
+    price: '',
+    stock: '',
+    sku: '',
+    isActive: true
+  });
+
   // Set up sensors for DnD
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -235,6 +245,45 @@ export default function ProductsByCategory() {
   const toggleReorderMode = () => {
     setIsReordering(!isReordering);
   };
+
+  // Strain Handler Functions
+  const handleAddStrain = () => {
+    if (!newStrain.name || !newStrain.price || !newStrain.stock) {
+      toast.error('Please fill all required strain fields');
+      return;
+    }
+
+    const strain = {
+      _id: Date.now().toString(),
+      name: newStrain.name,
+      price: parseFloat(newStrain.price),
+      stock: parseInt(newStrain.stock),
+      sku: newStrain.sku,
+      isActive: newStrain.isActive
+    };
+
+    setStrains([...strains, strain]);
+    setNewStrain({ name: '', price: '', stock: '', sku: '', isActive: true });
+    toast.success('Strain added successfully');
+  };
+
+  const handleRemoveStrain = (strainId) => {
+    setStrains(strains.filter(s => s._id !== strainId));
+    toast.success('Strain removed');
+  };
+
+  const handleUpdateStrain = (strainId, field, value) => {
+    setStrains(strains.map(s => 
+      s._id === strainId ? { ...s, [field]: value } : s
+    ));
+  };
+
+  const handleToggleStrainActive = (strainId) => {
+    setStrains(strains.map(s => 
+      s._id === strainId ? { ...s, isActive: !s.isActive } : s
+    ));
+  };
+
   const [form, setForm] = useState({
     name: '',
     price: '',
@@ -334,7 +383,13 @@ export default function ProductsByCategory() {
       setLoading(true);
       const response = await fetchProductsByCategory(categoryId, router, page, pagination.itemsPerPage);
       if (response.success) {
-        console.log(response)
+        console.log('Products loaded:', response.data);
+        // Log strains for each product
+        response.data.forEach(p => {
+          if (p.strains && p.strains.length > 0) {
+            console.log(`Product "${p.name}" has ${p.strains.length} strains:`, p.strains);
+          }
+        });
         setProducts(response.data || []);
         setPagination({
           ...pagination,
@@ -405,6 +460,9 @@ export default function ProductsByCategory() {
     if (!product) return;
     setSelectedProduct(product);
     
+    console.log('Loading product for edit:', product);
+    console.log('Product strains:', product.strains);
+    
     // Set default allergenInfo if not present
     const defaultAllergenInfo = {
       hasAllergens: false,
@@ -431,6 +489,7 @@ export default function ProductsByCategory() {
       hasVariants: product.hasVariants || false,
       variants: product.variants || [],
       flavors: product.flavors || [],
+      strains: product.strains || [],
       totalWeight: product.totalWeight || '',
       totalPieces: product.totalPieces || '',
       perPiece: product.perPiece || '',
@@ -444,6 +503,9 @@ export default function ProductsByCategory() {
         tooltipText: product.allergenInfo?.tooltipText || ''
       }
     });
+    
+    console.log('Edit form strains set to:', product.strains || []);
+    
     setEditKeepImages([...(product.images || [])]);
     setShowEditModal(true);
   };
@@ -716,6 +778,7 @@ export default function ProductsByCategory() {
       fd.append('hasVariants', String(editForm.hasVariants));
       fd.append('variants', JSON.stringify(editForm.variants || []));
       fd.append('flavors', JSON.stringify(editForm.flavors || []));
+      fd.append('strains', JSON.stringify(editForm.strains || []));
       fd.append('short_description', editForm.short_description || '');
       fd.append('totalWeight', editForm.totalWeight || '');
       fd.append('totalPieces', editForm.totalPieces || '');
@@ -1087,6 +1150,7 @@ export default function ProductsByCategory() {
       fd.append('hasVariants', String(form.hasVariants));
       fd.append('variants', JSON.stringify(form.variants || []));
       fd.append('flavors', JSON.stringify(form.flavors || []));
+      fd.append('strains', JSON.stringify(strains || []));
       fd.append('short_description', form.short_description || '');
       fd.append('totalWeight', form.totalWeight || '');
       fd.append('totalPieces', form.totalPieces || '');
@@ -1950,6 +2014,117 @@ export default function ProductsByCategory() {
                   </div>
                 </div>
 
+                {/* STRAINS SECTION */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                        <span className="mr-2">🧬</span>
+                        Product Strains (Optional)
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1">Add different strains with individual pricing and stock</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newStrain = {
+                          _id: Date.now().toString(),
+                          name: '',
+                          price: 0,
+                          stock: 0,
+                          sku: '',
+                          isActive: true
+                        };
+                        setStrains(prev => [...prev, newStrain]);
+                      }}
+                      className="flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Strain
+                    </button>
+                  </div>
+
+                  {strains.length === 0 && (
+                    <p className="text-sm text-gray-500 text-center py-4">No strains added. Strains are optional.</p>
+                  )}
+
+                  <div className="space-y-2">
+                    {strains.map((strain) => (
+                      <div key={strain._id} className="bg-white border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-xs font-semibold text-gray-600">Strain</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStrain(strain._id)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">Strain Name</label>
+                            <input
+                              type="text"
+                              value={strain.name}
+                              onChange={(e) => handleUpdateStrain(strain._id, 'name', e.target.value)}
+                              placeholder="e.g., Blue Dream"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">Price</label>
+                            <input
+                              type="number"
+                              value={strain.price}
+                              onChange={(e) => handleUpdateStrain(strain._id, 'price', parseFloat(e.target.value) || 0)}
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">Stock</label>
+                            <input
+                              type="number"
+                              value={strain.stock}
+                              onChange={(e) => handleUpdateStrain(strain._id, 'stock', parseInt(e.target.value) || 0)}
+                              placeholder="0"
+                              min="0"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">SKU (Optional)</label>
+                            <input
+                              type="text"
+                              value={strain.sku || ''}
+                              onChange={(e) => handleUpdateStrain(strain._id, 'sku', e.target.value)}
+                              placeholder="e.g., BD-250G"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div className="flex items-center mt-5">
+                            <input
+                              type="checkbox"
+                              id={`strain-active-${strain._id}`}
+                              checked={strain.isActive !== false}
+                              onChange={() => handleToggleStrainActive(strain._id)}
+                              className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                            />
+                            <label htmlFor={`strain-active-${strain._id}`} className="ml-2 block text-xs text-gray-700">
+                              Active
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Descriptions */}
                 <div>
                   <label className="block text-sm text-gray-700 mb-1">Main Description</label>
@@ -2662,6 +2837,143 @@ export default function ProductsByCategory() {
                           <label htmlFor={`edit-flavor-active-${index}`} className="ml-2 block text-xs text-gray-700">
                             Active
                           </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* STRAINS SECTION - Edit Form */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                        <span className="mr-2">🧬</span>
+                        Product Strains (Optional)
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1">Manage strains for this product</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newStrain = {
+                          _id: Date.now().toString(),
+                          name: '',
+                          price: 0,
+                          stock: 0,
+                          sku: '',
+                          isActive: true
+                        };
+                        setEditForm(prev => ({
+                          ...prev,
+                          strains: [...(prev.strains || []), newStrain]
+                        }));
+                      }}
+                      className="flex items-center px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Strain
+                    </button>
+                  </div>
+
+                  {(!editForm.strains || editForm.strains.length === 0) && (
+                    <p className="text-sm text-gray-500 text-center py-4">No strains added. Strains are optional.</p>
+                  )}
+
+                  <div className="space-y-2">
+                    {(editForm.strains || []).map((strain, index) => (
+                      <div key={strain._id || index} className="bg-white border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <span className="text-xs font-semibold text-gray-600">Strain #{index + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = editForm.strains.filter((_, i) => i !== index);
+                              setEditForm(prev => ({...prev, strains: updated}));
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">Strain Name</label>
+                            <input
+                              type="text"
+                              value={strain.name || ''}
+                              onChange={(e) => {
+                                const updated = [...editForm.strains];
+                                updated[index] = {...updated[index], name: e.target.value};
+                                setEditForm(prev => ({...prev, strains: updated}));
+                              }}
+                              placeholder="e.g., Blue Dream"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">Price</label>
+                            <input
+                              type="number"
+                              value={strain.price || 0}
+                              onChange={(e) => {
+                                const updated = [...editForm.strains];
+                                updated[index] = {...updated[index], price: parseFloat(e.target.value) || 0};
+                                setEditForm(prev => ({...prev, strains: updated}));
+                              }}
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">Stock</label>
+                            <input
+                              type="number"
+                              value={strain.stock || 0}
+                              onChange={(e) => {
+                                const updated = [...editForm.strains];
+                                updated[index] = {...updated[index], stock: parseInt(e.target.value) || 0};
+                                setEditForm(prev => ({...prev, strains: updated}));
+                              }}
+                              placeholder="0"
+                              min="0"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                          <div>
+                            <label className="block text-xs text-gray-700 mb-1">SKU (Optional)</label>
+                            <input
+                              type="text"
+                              value={strain.sku || ''}
+                              onChange={(e) => {
+                                const updated = [...editForm.strains];
+                                updated[index] = {...updated[index], sku: e.target.value};
+                                setEditForm(prev => ({...prev, strains: updated}));
+                              }}
+                              placeholder="e.g., BD-250G"
+                              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500"
+                            />
+                          </div>
+                          <div className="flex items-center mt-5">
+                            <input
+                              type="checkbox"
+                              id={`edit-strain-active-${index}`}
+                              checked={strain.isActive !== false}
+                              onChange={() => {
+                                const updated = [...editForm.strains];
+                                updated[index] = {...updated[index], isActive: !updated[index].isActive};
+                                setEditForm(prev => ({...prev, strains: updated}));
+                              }}
+                              className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                            />
+                            <label htmlFor={`edit-strain-active-${index}`} className="ml-2 block text-xs text-gray-700">
+                              Active
+                            </label>
+                          </div>
                         </div>
                       </div>
                     ))}
