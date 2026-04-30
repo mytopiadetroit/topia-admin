@@ -75,6 +75,9 @@ export default function Sidebar({ className = "", isMobileOpen = false }) {
     } else if (currentPath.includes("/content")) {
       setActiveModule("content");
       setActiveCategory("");
+    } else if (currentPath.includes("/about-us")) {
+      setActiveModule("about-us");
+      setActiveCategory("");
     } else if (currentPath.includes("/stats")) {
       setActiveModule("stats");
       setActiveCategory("");
@@ -232,6 +235,15 @@ export default function Sidebar({ className = "", isMobileOpen = false }) {
               >
                 <BookOpen className={`h-5 w-5 ${activeModule === "content" ? "text-[#80A6F7]" : ""}`} />
                 <span className="ml-2">Content</span>
+              </button>
+            </Link>
+
+            <Link href="/about-us">
+              <button
+                className={getModuleClasses("about-us")}
+              >
+                <FileText className={`h-5 w-5 ${activeModule === "about-us" ? "text-[#80A6F7]" : ""}`} />
+                <span className="ml-2">About Us</span>
               </button>
             </Link>
 

@@ -240,14 +240,21 @@ export default function SubscriptionDetail() {
   }
 
   const handleCreateBoxPickup = async () => {
-    // Show confirmation dialog
+    const effectiveItems = subscription.currentBoxItems?.length > 0
+      ? subscription.currentBoxItems
+      : (subscription.selectedProducts || []).map(p => ({
+          itemName: p.productName,
+          quantity: 1,
+          notes: p.productPrice ? `$${p.productPrice}` : ''
+        }))
+
     const result = await Swal.fire({
       title: 'Create Box Pickup?',
       html: `
         <div class="text-left">
           <p class="mb-2">This will create a new box pickup for:</p>
           <p class="font-semibold">${subscription.userId?.fullName}</p>
-          <p class="text-sm text-gray-600 mt-2">Items: ${subscription.currentBoxItems?.length || 0}</p>
+          <p class="text-sm text-gray-600 mt-2">Items: ${effectiveItems.length}</p>
         </div>
       `,
       icon: 'question',
@@ -271,9 +278,11 @@ export default function SubscriptionDetail() {
         }
       })
 
+      const boxItems = effectiveItems
+
       const data = await createBoxPickup({
         userId: subscription.userId._id,
-        items: subscription.currentBoxItems || [],
+        items: boxItems,
         scheduledDate: new Date(),
         notes: 'Created by admin'
       }, router)
@@ -669,6 +678,11 @@ export default function SubscriptionDetail() {
           
           <div className="flex items-center space-x-3">
             {getStatusBadge(subscription.status)}
+            {subscription.cancellationRequestedAt && (
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                ⚠️ Cancellation Requested
+              </span>
+            )}
             
             <button
               onClick={() => setShowBillingDateModal(true)}
@@ -714,7 +728,19 @@ export default function SubscriptionDetail() {
 
             {!editing ? (
               <button
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                  setEditing(true)
+                  if (!subscription.currentBoxItems?.length && subscription.selectedProducts?.length) {
+                    setEditData(prev => ({
+                      ...prev,
+                      currentBoxItems: subscription.selectedProducts.map(p => ({
+                        itemName: p.productName,
+                        quantity: 1,
+                        notes: p.productPrice ? `$${p.productPrice}` : ''
+                      }))
+                    }))
+                  }
+                }}
                 className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Edit className="w-4 h-4 mr-2" />
@@ -880,6 +906,15 @@ export default function SubscriptionDetail() {
                 <div>
                   <span className="text-sm text-gray-500">Cancelled On:</span>
                   <p className="font-medium">{formatDate(subscription.cancellationDate)}</p>
+                </div>
+              )}
+              {subscription.cancellationRequestedAt && (
+                <div className="col-span-2 bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <span className="text-sm font-medium text-orange-700">Cancellation Requested:</span>
+                  <p className="text-sm text-orange-600 mt-1">{formatDate(subscription.cancellationRequestedAt)}</p>
+                  {subscription.cancellationReason && (
+                    <p className="text-sm text-gray-600 mt-1">Reason: {subscription.cancellationReason}</p>
+                  )}
                 </div>
               )}
             </div>
@@ -1084,6 +1119,21 @@ export default function SubscriptionDetail() {
                   )}
                 </div>
               ))
+            ) : subscription.selectedProducts?.length > 0 ? (
+              <>
+                <p className="text-xs text-gray-400 mb-2">Showing user's selected products (no custom box set yet)</p>
+                {subscription.selectedProducts.map((product, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div>
+                      <span className="font-medium">{product.productName}</span>
+                      <span className="text-gray-500 ml-2">x1</span>
+                    </div>
+                    {product.productPrice > 0 && (
+                      <span className="text-sm text-green-600 font-medium">${product.productPrice}</span>
+                    )}
+                  </div>
+                ))}
+              </>
             ) : (
               <p className="text-gray-500 text-center py-4">No items in current box</p>
             )}
@@ -1258,16 +1308,21 @@ export default function SubscriptionDetail() {
               This will create a new box pickup record for this member using the current box items.
             </p>
             <div className="bg-gray-50 p-4 rounded-lg mb-4">
-              <p className="text-sm font-medium mb-2">Current Box Items:</p>
-              {subscription.currentBoxItems && subscription.currentBoxItems.length > 0 ? (
-                <ul className="text-sm text-gray-600 space-y-1">
-                  {subscription.currentBoxItems.map((item, idx) => (
-                    <li key={idx}>• {item.itemName} x{item.quantity}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-gray-500">No items configured</p>
-              )}
+              <p className="text-sm font-medium mb-2">Box Items:</p>
+              {(() => {
+                const items = subscription.currentBoxItems?.length > 0
+                  ? subscription.currentBoxItems
+                  : subscription.selectedProducts?.map(p => ({ itemName: p.productName, quantity: 1, notes: p.productPrice ? `$${p.productPrice}` : '' })) || []
+                return items.length > 0 ? (
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    {items.map((item, idx) => (
+                      <li key={idx}>• {item.itemName} x{item.quantity}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-500">No items configured</p>
+                )
+              })()}
             </div>
             <div className="flex space-x-3">
               <button

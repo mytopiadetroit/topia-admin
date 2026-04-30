@@ -5,8 +5,8 @@ import axios from "axios";
 //   ? "http://localhost:5000/api/"
 //   : "https://api.mypsyguide.io/api/";
 
-          // const ConstantsUrl = "http://localhost:5000/api/";
-         const ConstantsUrl = "https://api.mypsyguide.io/api/";
+        //  const ConstantsUrl = "http://localhost:5000/api/";
+        const ConstantsUrl = "https://api.mypsyguide.io/api/";
 
 let isRedirecting = false;
 
@@ -1634,6 +1634,151 @@ export const updatePaymentInfo = async (subscriptionId, paymentInfo, router) => 
     return await Api('put', `subscriptions/admin/${subscriptionId}/payment-info`, paymentInfo, router);
   } catch (error) {
     console.error('Error updating payment info:', error);
+    throw error;
+  }
+};
+
+export const updatePaymentStatus = async (subscriptionId, paymentStatus, router) => {
+  try {
+    return await Api('put', `subscriptions/admin/${subscriptionId}/payment-status`, { paymentStatus }, router);
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    throw error;
+  }
+};
+
+// About Us Management APIs
+export const fetchAboutUs = async (router) => {
+  try {
+    return await Api('get', 'about-us', null, router);
+  } catch (error) {
+    console.error('Error fetching About Us:', error);
+    throw error;
+  }
+};
+
+export const updateAboutUsContent = async (data, router) => {
+  try {
+    return await Api('put', 'about-us/content', data, router);
+  } catch (error) {
+    console.error('Error updating About Us content:', error);
+    throw error;
+  }
+};
+
+export const updateContactInfo = async (contactInfo, router) => {
+  try {
+    return await Api('put', 'about-us/contact-info', contactInfo, router);
+  } catch (error) {
+    console.error('Error updating contact info:', error);
+    throw error;
+  }
+};
+
+export const addFAQ = async (faqData, router) => {
+  try {
+    return await Api('post', 'about-us/faqs', faqData, router);
+  } catch (error) {
+    console.error('Error adding FAQ:', error);
+    throw error;
+  }
+};
+
+export const updateFAQ = async (faqId, faqData, router) => {
+  try {
+    return await Api('put', `about-us/faqs/${faqId}`, faqData, router);
+  } catch (error) {
+    console.error('Error updating FAQ:', error);
+    throw error;
+  }
+};
+
+export const deleteFAQ = async (faqId, router) => {
+  try {
+    return await Api('delete', `about-us/faqs/${faqId}`, null, router);
+  } catch (error) {
+    console.error('Error deleting FAQ:', error);
+    throw error;
+  }
+};
+
+export const reorderFAQs = async (faqOrders, router) => {
+  try {
+    return await Api('put', 'about-us/faqs/reorder', { faqOrders }, router);
+  } catch (error) {
+    console.error('Error reordering FAQs:', error);
+    throw error;
+  }
+};
+
+export const fetchMonthlyBoxFAQs = async (router) => {
+  try {
+    return await Api('get', 'monthly-box-faqs', null, router);
+  } catch (error) {
+    console.error('Error fetching monthly box FAQs:', error);
+    throw error;
+  }
+};
+
+export const addMonthlyBoxFAQ = async (faqData, router) => {
+  try {
+    return await Api('post', 'monthly-box-faqs', faqData, router);
+  } catch (error) {
+    console.error('Error adding monthly box FAQ:', error);
+    throw error;
+  }
+};
+
+export const updateMonthlyBoxFAQ = async (faqId, faqData, router) => {
+  try {
+    return await Api('put', `monthly-box-faqs/${faqId}`, faqData, router);
+  } catch (error) {
+    console.error('Error updating monthly box FAQ:', error);
+    throw error;
+  }
+};
+
+export const deleteMonthlyBoxFAQ = async (faqId, router) => {
+  try {
+    return await Api('delete', `monthly-box-faqs/${faqId}`, null, router);
+  } catch (error) {
+    console.error('Error deleting monthly box FAQ:', error);
+    throw error;
+  }
+};
+
+export const fetchBillingFAQs = async (router) => {
+  try {
+    return await Api('get', 'billing-faqs', null, router);
+  } catch (error) {
+    console.error('Error fetching billing FAQs:', error);
+    throw error;
+  }
+};
+
+export const addBillingFAQ = async (faqData, router) => {
+  try {
+    return await Api('post', 'billing-faqs', faqData, router);
+  } catch (error) {
+    console.error('Error adding billing FAQ:', error);
+    throw error;
+  }
+};
+
+export const updateBillingFAQ = async (faqId, faqData, router) => {
+  try {
+    return await Api('put', `billing-faqs/${faqId}`, faqData, router);
+  } catch (error) {
+    console.error('Error updating billing FAQ:', error);
+    throw error;
+  }
+};
+
+export const deleteBillingFAQ = async (faqId, router) => {
+  try {
+    return await Api('delete', `billing-faqs/${faqId}`, null, router);
+  } catch (error) {
+    console.error('Error deleting billing FAQ:', error);
     throw error;
   }
 };

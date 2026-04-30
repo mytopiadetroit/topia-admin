@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { Eye, Edit, Settings, Users, DollarSign, Calendar, Search, Filter } from 'lucide-react'
+import { Eye, Settings, Users, Search, Filter } from 'lucide-react'
+import Swal from 'sweetalert2'
 import Layout from '@/components/Layout'
 import { 
   fetchAllSubscriptions, 
   fetchSubscriptionSettings, 
   updateSubscriptionSettings,
+  fetchMonthlyBoxFAQs,
+  addMonthlyBoxFAQ,
+  updateMonthlyBoxFAQ,
+  deleteMonthlyBoxFAQ,
+  fetchBillingFAQs,
+  addBillingFAQ,
+  updateBillingFAQ,
+  deleteBillingFAQ,
+  updatePaymentStatus,
   toast 
 } from '../service/service'
 
@@ -13,36 +23,54 @@ export default function Subscriptions() {
   const router = useRouter()
   const [subscriptions, setSubscriptions] = useState([])
   const [settings, setSettings] = useState(null)
+  const [faqs, setFaqs] = useState([])
+  const [billingFaqs, setBillingFaqs] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('subscriptions')
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 })
+  const [showFAQModal, setShowFAQModal] = useState(false)
+  const [editingFAQ, setEditingFAQ] = useState(null)
+  const [faqForm, setFaqForm] = useState({ question: '', answer: '', order: 0 })
+  const [activeFAQType, setActiveFAQType] = useState('monthly')
 
   useEffect(() => {
     loadData()
-  }, [pagination.page, statusFilter])
+  }, [pagination.page, statusFilter, activeTab])
 
   const loadData = async () => {
     try {
       setLoading(true)
       
-      const [subscriptionsData, settingsData] = await Promise.all([
-        fetchAllSubscriptions(router, {
-          page: pagination.page,
-          limit: pagination.limit,
-          status: statusFilter !== 'all' ? statusFilter : ''
-        }),
-        fetchSubscriptionSettings(router)
-      ])
+      if (activeTab === 'faqs') {
+        const faqsData = await fetchMonthlyBoxFAQs(router)
+        if (faqsData.success) {
+          setFaqs(faqsData.data)
+        }
+      } else if (activeTab === 'billing-faqs') {
+        const billingFaqsData = await fetchBillingFAQs(router)
+        if (billingFaqsData.success) {
+          setBillingFaqs(billingFaqsData.data)
+        }
+      } else {
+        const [subscriptionsData, settingsData] = await Promise.all([
+          fetchAllSubscriptions(router, {
+            page: pagination.page,
+            limit: pagination.limit,
+            status: statusFilter !== 'all' ? statusFilter : ''
+          }),
+          fetchSubscriptionSettings(router)
+        ])
 
-      if (subscriptionsData.success) {
-        setSubscriptions(subscriptionsData.data)
-        setPagination(prev => ({ ...prev, ...subscriptionsData.pagination }))
-      }
+        if (subscriptionsData.success) {
+          setSubscriptions(subscriptionsData.data)
+          setPagination(prev => ({ ...prev, ...subscriptionsData.pagination }))
+        }
 
-      if (settingsData.success) {
-        setSettings(settingsData.data)
+        if (settingsData.success) {
+          setSettings(settingsData.data)
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -64,6 +92,98 @@ export default function Subscriptions() {
     } catch (error) {
       console.error('Error updating settings:', error)
       toast.error('Failed to update settings')
+    }
+  }
+
+  const handleUpdatePaymentStatus = async (subscriptionId, paymentStatus) => {
+    try {
+      const response = await updatePaymentStatus(subscriptionId, paymentStatus, router)
+      if (response.success) {
+        toast.success('Payment status updated')
+        setSubscriptions(prev => prev.map(s => s._id === subscriptionId ? { ...s, paymentStatus } : s))
+      } else {
+        toast.error(response.message || 'Failed to update payment status')
+      }
+    } catch (error) {
+      toast.error('Failed to update payment status')
+    }
+  }
+
+  const handleAddFAQ = () => {
+    setActiveFAQType(activeTab === 'billing-faqs' ? 'billing' : 'monthly')
+    setEditingFAQ(null)
+    setFaqForm({ question: '', answer: '', order: 0 })
+    setShowFAQModal(true)
+  }
+
+  const handleEditFAQ = (faq, type) => {
+    setActiveFAQType(type)
+    setEditingFAQ(faq)
+    setFaqForm({ question: faq.question, answer: faq.answer, order: faq.order })
+    setShowFAQModal(true)
+  }
+
+  const handleSaveFAQ = async () => {
+    if (!faqForm.question.trim() || !faqForm.answer.trim()) {
+      toast.error('Question and answer required')
+      return
+    }
+
+    try {
+      let response
+      if (activeFAQType === 'billing') {
+        response = editingFAQ
+          ? await updateBillingFAQ(editingFAQ._id, faqForm, router)
+          : await addBillingFAQ(faqForm, router)
+      } else {
+        response = editingFAQ
+          ? await updateMonthlyBoxFAQ(editingFAQ._id, faqForm, router)
+          : await addMonthlyBoxFAQ(faqForm, router)
+      }
+
+      if (response.success) {
+        toast.success(editingFAQ ? 'FAQ updated' : 'FAQ added')
+        setShowFAQModal(false)
+        setFaqForm({ question: '', answer: '', order: 0 })
+        setEditingFAQ(null)
+        loadData()
+      } else {
+        toast.error(response.message || 'Failed to save FAQ')
+      }
+    } catch (error) {
+      console.error('Error saving FAQ:', error)
+      toast.error('Failed to save FAQ')
+    }
+  }
+
+  const handleDeleteFAQ = async (faqId, type) => {
+    const result = await Swal.fire({
+      title: 'Delete FAQ?',
+      text: 'This action cannot be undone',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel'
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      const response = type === 'billing'
+        ? await deleteBillingFAQ(faqId, router)
+        : await deleteMonthlyBoxFAQ(faqId, router)
+
+      if (response.success) {
+        toast.success('FAQ deleted')
+        loadData()
+      } else {
+        toast.error(response.message || 'Failed to delete FAQ')
+      }
+    } catch (error) {
+      console.error('Error deleting FAQ:', error)
+      toast.error('Failed to delete FAQ')
     }
   }
 
@@ -131,6 +251,26 @@ export default function Subscriptions() {
               <Settings className="w-4 h-4 inline mr-2" />
               Settings
             </button>
+            <button
+              onClick={() => setActiveTab('faqs')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'faqs'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              FAQs ({faqs.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('billing-faqs')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'billing-faqs'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Billing FAQs ({billingFaqs.length})
+            </button>
           </nav>
         </div>
 
@@ -182,6 +322,9 @@ export default function Subscriptions() {
                       Next Billing
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Payment Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -210,6 +353,21 @@ export default function Subscriptions() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {subscription.status === 'active' ? formatDate(subscription.nextBillingDate) : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <select
+                          value={subscription.paymentStatus || 'pending'}
+                          onChange={(e) => handleUpdatePaymentStatus(subscription._id, e.target.value)}
+                          className={`text-xs font-medium px-2 py-1 rounded border-0 cursor-pointer focus:ring-2 focus:ring-blue-500 ${
+                            subscription.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' :
+                            subscription.paymentStatus === 'declined' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="paid">Paid</option>
+                          <option value="declined">Declined</option>
+                        </select>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
@@ -316,7 +474,176 @@ export default function Subscriptions() {
             </div>
           </div>
         )}
+
+        {activeTab === 'faqs' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Monthly Box FAQs</h2>
+              <button
+                onClick={handleAddFAQ}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                + Add FAQ
+              </button>
+            </div>
+
+            {faqs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No FAQs yet. Click "Add FAQ" to create one.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {faqs.map((faq, index) => (
+                  <div key={faq._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800 mb-2">
+                          {index + 1}. {faq.question}
+                        </h3>
+                        <p className="text-gray-600 text-sm">{faq.answer}</p>
+                      </div>
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => handleEditFAQ(faq, 'monthly')}
+                          className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFAQ(faq._id, 'monthly')}
+                          className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'billing-faqs' && (
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">Billing FAQs</h2>
+              <button
+                onClick={handleAddFAQ}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                + Add FAQ
+              </button>
+            </div>
+
+            {billingFaqs.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No FAQs yet. Click "Add FAQ" to create one.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {billingFaqs.map((faq, index) => (
+                  <div key={faq._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800 mb-2">
+                          {index + 1}. {faq.question}
+                        </h3>
+                        <p className="text-gray-600 text-sm">{faq.answer}</p>
+                      </div>
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => handleEditFAQ(faq, 'billing')}
+                          className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteFAQ(faq._id, 'billing')}
+                          className="px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {showFAQModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-2xl font-bold text-gray-800 mb-4">
+                {editingFAQ ? 'Edit FAQ' : 'Add New FAQ'}
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Question *
+                  </label>
+                  <input
+                    type="text"
+                    value={faqForm.question}
+                    onChange={(e) => setFaqForm({ ...faqForm, question: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter question"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Answer *
+                  </label>
+                  <textarea
+                    value={faqForm.answer}
+                    onChange={(e) => setFaqForm({ ...faqForm, answer: e.target.value })}
+                    rows="5"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter answer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Order
+                  </label>
+                  <input
+                    type="number"
+                    value={faqForm.order}
+                    onChange={(e) => setFaqForm({ ...faqForm, order: parseInt(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowFAQModal(false)
+                    setFaqForm({ question: '', answer: '', order: 0 })
+                    setEditingFAQ(null)
+                  }}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveFAQ}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  {editingFAQ ? 'Update' : 'Add'} FAQ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

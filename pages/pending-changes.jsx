@@ -201,7 +201,8 @@ export default function PendingChanges() {
     const labels = {
       profile: 'Profile Update',
       subscription: 'Subscription Update',
-      account: 'Account Update'
+      account: 'Account Update',
+      subscription_cancel: 'Subscription Cancellation'
     }
     return labels[type] || type
   }
